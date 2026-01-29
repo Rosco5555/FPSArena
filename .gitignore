@@ -1,0 +1,12 @@
+# Build output
+FPSGame
+*.o
+*.dSYM/
+
+# macOS
+.DS_Store
+
+# Xcode
+*.xcodeproj/
+xcuserdata/
+DerivedData/
