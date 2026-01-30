@@ -241,17 +241,17 @@
             float rgtX = cosf(_metalView.camYaw);
             float rgtZ = sinf(_metalView.camYaw);
 
-            if (_metalView.keyW) { _metalView.velocityX += fwdX * accel; _metalView.velocityZ += fwdZ * accel; }
-            if (_metalView.keyS) { _metalView.velocityX -= fwdX * accel; _metalView.velocityZ -= fwdZ * accel; }
-            if (_metalView.keyA) { _metalView.velocityX -= rgtX * accel; _metalView.velocityZ -= rgtZ * accel; }
-            if (_metalView.keyD) { _metalView.velocityX += rgtX * accel; _metalView.velocityZ += rgtZ * accel; }
+            if (_metalView.keyW) { _metalView.velocityX += fwdX * MOVE_ACCEL; _metalView.velocityZ += fwdZ * MOVE_ACCEL; }
+            if (_metalView.keyS) { _metalView.velocityX -= fwdX * MOVE_ACCEL; _metalView.velocityZ -= fwdZ * MOVE_ACCEL; }
+            if (_metalView.keyA) { _metalView.velocityX -= rgtX * MOVE_ACCEL; _metalView.velocityZ -= rgtZ * MOVE_ACCEL; }
+            if (_metalView.keyD) { _metalView.velocityX += rgtX * MOVE_ACCEL; _metalView.velocityZ += rgtZ * MOVE_ACCEL; }
         }
 
         // Clamp horizontal speed
         float hSpeed = sqrtf(_metalView.velocityX * _metalView.velocityX + _metalView.velocityZ * _metalView.velocityZ);
-        if (hSpeed > maxSpeed) {
-            _metalView.velocityX *= maxSpeed / hSpeed;
-            _metalView.velocityZ *= maxSpeed / hSpeed;
+        if (hSpeed > MAX_SPEED) {
+            _metalView.velocityX *= MAX_SPEED / hSpeed;
+            _metalView.velocityZ *= MAX_SPEED / hSpeed;
         }
 
         // Apply friction to horizontal movement
