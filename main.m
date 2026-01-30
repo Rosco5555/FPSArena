@@ -199,8 +199,13 @@
     GameState *gameState = [GameState shared];
     NSLog(@"[NETWORK] Received hit: %d damage to player %u from player %u (local=%d)", damage, playerId, shooterId, gameState.localPlayerId);
 
-    // Apply damage if we're the target
+    // Apply damage if we're the target and not already dead
     if (playerId == (uint32_t)gameState.localPlayerId) {
+        // Don't apply damage if already dead (prevents respawn timer reset)
+        if (gameState.gameOver) {
+            NSLog(@"[NETWORK] Ignoring hit - player already dead");
+            return;
+        }
         NSLog(@"[NETWORK] Applying %d damage to local player! Health: %d -> %d", damage, gameState.playerHealth, gameState.playerHealth - damage);
         gameState.playerHealth -= damage;
         gameState.damageCooldownTimer = 0;
