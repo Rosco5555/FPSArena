@@ -1285,7 +1285,7 @@
         int mv = 0;
 
         // Minimap settings
-        float mapCenterX = 0.72f;   // Top-right corner
+        float mapCenterX = -0.72f;  // Top-left corner
         float mapCenterY = 0.72f;
         float mapRadius = 0.22f;    // Size of minimap
         float mapScale = mapRadius / (ARENA_SIZE * 1.2f);  // World to screen scale
@@ -1314,13 +1314,14 @@
         } while(0)
 
         // Helper to transform world coords to minimap coords (rotated around player)
+        // Player always faces up on minimap, world rotates around them
         #define WORLD_TO_MAP(wx, wz, outX, outY) do { \
             float dx = (wx) - playerX; \
             float dz = (wz) - playerZ; \
-            float cosYaw = cosf(-playerYaw + M_PI); \
-            float sinYaw = sinf(-playerYaw + M_PI); \
-            float rotX = dx * cosYaw - dz * sinYaw; \
-            float rotZ = dx * sinYaw + dz * cosYaw; \
+            float cosYaw = cosf(playerYaw - M_PI_2); \
+            float sinYaw = sinf(playerYaw - M_PI_2); \
+            float rotX = dx * cosYaw + dz * sinYaw; \
+            float rotZ = -dx * sinYaw + dz * cosYaw; \
             outX = mapCenterX + rotX * mapScale; \
             outY = mapCenterY + rotZ * mapScale; \
         } while(0)
