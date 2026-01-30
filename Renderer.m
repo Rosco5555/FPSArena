@@ -222,119 +222,113 @@
     // Update multiplayer network state
     [_metalView sendNetworkState];
 
-    // Apply movement (skip when paused)
+    // ============================================
+    // PHYSICS SYSTEM - Proper collision order
+    // ============================================
+    // 1. Apply input to velocity
+    // 2. Apply gravity to velocity
+    // 3. Move player by velocity (with collision detection)
+    // 4. Resolve collisions and set onGround flag
+    // ============================================
+
+    // Skip physics when paused
     if (!state.gameOver && !state.isPaused) {
-        // Initialize currentHeight if needed (first frame)
-        if (_metalView.currentHeight == 0) {
-            _metalView.currentHeight = PLAYER_HEIGHT;
-        }
 
-        // Smooth crouch transition
-        float targetHeight = _metalView.keyCrouch ? CROUCH_HEIGHT : PLAYER_HEIGHT;
-        float heightDiff = targetHeight - _metalView.currentHeight;
-        if (fabsf(heightDiff) > 0.01f) {
-            // Adjust position to keep feet on ground during crouch
-            float oldHeight = _metalView.currentHeight;
-            _metalView.currentHeight += heightDiff * CROUCH_TRANSITION_SPEED * 2.0f;
-            // Adjust camera position to reflect height change (keep feet planted)
-            if (_metalView.onGround) {
-                _metalView.posY += (_metalView.currentHeight - oldHeight);
-            }
-        } else {
-            _metalView.currentHeight = targetHeight;
-        }
-
-        // Calculate speed multiplier based on crouch state
-        float speedMultiplier = _metalView.keyCrouch ? CROUCH_SPEED_MULTIPLIER : 1.0f;
-        float accel = MOVE_ACCEL * speedMultiplier;
-
+        // --- STEP 1: Apply input acceleration ---
         if (_metalView.controlsActive) {
             float fwdX = sinf(_metalView.camYaw);
             float fwdZ = -cosf(_metalView.camYaw);
             float rgtX = cosf(_metalView.camYaw);
             float rgtZ = sinf(_metalView.camYaw);
 
-            if (_metalView.keyW) { _metalView.velocityX += fwdX * accel; _metalView.velocityZ += fwdZ * accel; }
-            if (_metalView.keyS) { _metalView.velocityX -= fwdX * accel; _metalView.velocityZ -= fwdZ * accel; }
-            if (_metalView.keyA) { _metalView.velocityX -= rgtX * accel; _metalView.velocityZ -= rgtZ * accel; }
-            if (_metalView.keyD) { _metalView.velocityX += rgtX * accel; _metalView.velocityZ += rgtZ * accel; }
+            if (_metalView.keyW) { _metalView.velocityX += fwdX * MOVE_ACCEL; _metalView.velocityZ += fwdZ * MOVE_ACCEL; }
+            if (_metalView.keyS) { _metalView.velocityX -= fwdX * MOVE_ACCEL; _metalView.velocityZ -= fwdZ * MOVE_ACCEL; }
+            if (_metalView.keyA) { _metalView.velocityX -= rgtX * MOVE_ACCEL; _metalView.velocityZ -= rgtZ * MOVE_ACCEL; }
+            if (_metalView.keyD) { _metalView.velocityX += rgtX * MOVE_ACCEL; _metalView.velocityZ += rgtZ * MOVE_ACCEL; }
         }
 
-        float maxSpeed = MAX_SPEED * speedMultiplier;
+        // Clamp horizontal speed
         float hSpeed = sqrtf(_metalView.velocityX * _metalView.velocityX + _metalView.velocityZ * _metalView.velocityZ);
-        if (hSpeed > maxSpeed) {
-            _metalView.velocityX *= maxSpeed / hSpeed;
-            _metalView.velocityZ *= maxSpeed / hSpeed;
+        if (hSpeed > MAX_SPEED) {
+            _metalView.velocityX *= MAX_SPEED / hSpeed;
+            _metalView.velocityZ *= MAX_SPEED / hSpeed;
         }
 
+        // Apply friction to horizontal movement
         _metalView.velocityX *= MOVE_FRICTION;
         _metalView.velocityZ *= MOVE_FRICTION;
+
+        // --- STEP 2: Apply gravity ---
+        _metalView.velocityY -= GRAVITY;
+
+        // Clamp terminal velocity
+        if (_metalView.velocityY < -0.5f) _metalView.velocityY = -0.5f;
+
+        // Store original position for collision detection
+        float origX = _metalView.posX;
+        float origY = _metalView.posY;
+        float origZ = _metalView.posZ;
+
+        // --- STEP 3: Move player ---
         _metalView.posX += _metalView.velocityX;
+        _metalView.posY += _metalView.velocityY;
         _metalView.posZ += _metalView.velocityZ;
 
-        // Footstep sounds
-        float currentSpeed = sqrtf(_metalView.velocityX * _metalView.velocityX + _metalView.velocityZ * _metalView.velocityZ);
-        if (_metalView.onGround && currentSpeed > 0.03f) {
-            state.footstepTimer++;
-            if (state.footstepTimer >= 20) {
-                state.footstepTimer = 0;
-                [[SoundManager shared] playFootstepSound];
-            }
-        } else {
-            state.footstepTimer = 12;
-        }
-    }
+        // --- STEP 4: Ground/Platform collision detection ---
+        // Clear onGround - will be set true if we detect ground contact
+        BOOL wasOnGround = _metalView.onGround;
+        _metalView.onGround = NO;
 
-    // Gravity and jumping - determine base floor level first
-    float px = _metalView.posX;
-    float pz = _metalView.posZ;  // Use raw coordinates for collision
-
-    // Check if player is in bunker area (underground floor)
-    float bunkerMinX = BUNKER_X - BUNKER_WIDTH/2;
-    float bunkerMaxX = BUNKER_X + BUNKER_WIDTH/2;
-    float bunkerMinZ = BUNKER_Z - BUNKER_DEPTH/2;
-    float bunkerMaxZ = BUNKER_Z + BUNKER_DEPTH/2;  // Include stair entrance area
-
-    BOOL inBunkerArea = (px > bunkerMinX && px < bunkerMaxX &&
-                         pz > bunkerMinZ && pz < bunkerMaxZ);
-
-    // Base ground level - use basement level if in bunker, otherwise standard floor
-    float baseGroundY = inBunkerArea ? BASEMENT_LEVEL : FLOOR_Y;
-    float playerHeight = _metalView.currentHeight > 0 ? _metalView.currentHeight : PLAYER_HEIGHT;
-    float groundEyeY = baseGroundY + playerHeight;
-
-    // Only apply gravity when not paused
-    if (!state.isPaused) {
-        _metalView.velocityY -= GRAVITY;
-        _metalView.posY += _metalView.velocityY;
-        if (_metalView.posY <= groundEyeY) {
-            _metalView.posY = groundEyeY;
-            _metalView.velocityY = 0;
-            _metalView.onGround = YES;
-        }
-    }
-
-    // Platform/roof collision (for standing on elevated surfaces)
-    {
         float px = _metalView.posX;
-        float pz = _metalView.posZ;  // Use raw coordinates for collision
-        float currentPlayerHeight = _metalView.currentHeight > 0 ? _metalView.currentHeight : PLAYER_HEIGHT;
-        float feetY = _metalView.posY - currentPlayerHeight;
+        float py = _metalView.posY;
+        float pz = _metalView.posZ;
+        float feetY = py - PLAYER_HEIGHT;
+        float velY = _metalView.velocityY;
 
-        // Command building roof collision (block from going through)
-        float hw = CMD_BUILDING_WIDTH / 2.0f;
-        float hd = CMD_BUILDING_DEPTH / 2.0f;
-        float roofY = FLOOR_Y + CMD_BUILDING_HEIGHT;
-        float headY = _metalView.posY + 0.1f;
+        // Ground detection tolerance - tighter than before to prevent glitching
+        float groundTolerance = 0.15f;
+        // Landing tolerance - how far above platform we can be to land on it
+        float landingTolerance = 0.08f;
 
-        if (px > CMD_BUILDING_X - hw && px < CMD_BUILDING_X + hw && pz > CMD_BUILDING_Z - hd && pz < CMD_BUILDING_Z + hd) {
-            if (headY > roofY) {
-                _metalView.posY = roofY - 0.1f;
-                if (_metalView.velocityY > 0) _metalView.velocityY = 0;
+        // Track the highest valid ground surface found
+        float bestGroundY = -1000.0f;
+        BOOL foundGround = NO;
+
+        // --- Check base floor level (including bunker) ---
+        float bunkerMinX = BUNKER_X - BUNKER_WIDTH/2;
+        float bunkerMaxX = BUNKER_X + BUNKER_WIDTH/2;
+        float bunkerMinZ = BUNKER_Z - BUNKER_DEPTH/2;
+        float bunkerMaxZ = BUNKER_Z + BUNKER_DEPTH/2;
+
+        BOOL inBunkerArea = (px > bunkerMinX && px < bunkerMaxX &&
+                             pz > bunkerMinZ && pz < bunkerMaxZ);
+        float baseGroundY = inBunkerArea ? BASEMENT_LEVEL : FLOOR_Y;
+
+        // Check if at or below base ground
+        if (feetY <= baseGroundY + groundTolerance) {
+            if (baseGroundY > bestGroundY) {
+                bestGroundY = baseGroundY;
+                foundGround = YES;
             }
         }
 
-        // Tower platforms - allow standing on them
+        // --- Platform collision detection ---
+        // Use a helper macro to check if we can land on a platform
+        // Only land when: (1) horizontally over platform, (2) feet at or just above surface,
+        // (3) moving downward or stationary, (4) platform is higher than current best ground
+        #define CHECK_PLATFORM_LANDING(platMinX, platMinZ, platMaxX, platMaxZ, platTopY) \
+            if (px > (platMinX) - PLAYER_RADIUS && px < (platMaxX) + PLAYER_RADIUS && \
+                pz > (platMinZ) - PLAYER_RADIUS && pz < (platMaxZ) + PLAYER_RADIUS) { \
+                float dist = feetY - (platTopY); \
+                if (dist >= -landingTolerance && dist <= groundTolerance && velY <= 0.001f) { \
+                    if ((platTopY) > bestGroundY) { \
+                        bestGroundY = (platTopY); \
+                        foundGround = YES; \
+                    } \
+                } \
+            }
+
+        // Tower platforms
         float towerPositions[4][2] = {
             {TOWER_OFFSET, TOWER_OFFSET},
             {-TOWER_OFFSET, TOWER_OFFSET},
@@ -342,64 +336,29 @@
             {TOWER_OFFSET, -TOWER_OFFSET}
         };
 
+        float platHalfSize = TOWER_SIZE / 2.0f;
         for (int t = 0; t < 4; t++) {
             float tx = towerPositions[t][0];
             float tz = towerPositions[t][1];
-            float platTop = PLATFORM_LEVEL;
-            float platHalfSize = TOWER_SIZE / 2.0f + 0.1f;  // Slight margin for easier landing
-
-            if (px > tx - platHalfSize && px < tx + platHalfSize &&
-                pz > tz - platHalfSize && pz < tz + platHalfSize) {
-                // Player is above platform - land on it
-                if (feetY >= platTop - 0.5f && _metalView.velocityY <= 0) {
-                    _metalView.posY = platTop + currentPlayerHeight;
-                    _metalView.velocityY = 0;
-                    _metalView.onGround = YES;
-                }
-            }
+            CHECK_PLATFORM_LANDING(tx - platHalfSize, tz - platHalfSize,
+                                   tx + platHalfSize, tz + platHalfSize, PLATFORM_LEVEL);
         }
 
-        // Catwalk platforms - allow standing on them
+        // Catwalks
         // North catwalk
-        if (px > -TOWER_OFFSET + TOWER_SIZE/2 && px < TOWER_OFFSET - TOWER_SIZE/2 &&
-            pz > TOWER_OFFSET - CATWALK_WIDTH/2 && pz < TOWER_OFFSET + CATWALK_WIDTH/2) {
-            if (feetY >= PLATFORM_LEVEL - 0.5f && _metalView.velocityY <= 0) {
-                _metalView.posY = PLATFORM_LEVEL + currentPlayerHeight;
-                _metalView.velocityY = 0;
-                _metalView.onGround = YES;
-            }
-        }
+        CHECK_PLATFORM_LANDING(-TOWER_OFFSET + TOWER_SIZE/2, TOWER_OFFSET - CATWALK_WIDTH/2,
+                               TOWER_OFFSET - TOWER_SIZE/2, TOWER_OFFSET + CATWALK_WIDTH/2, PLATFORM_LEVEL);
         // South catwalk
-        if (px > -TOWER_OFFSET + TOWER_SIZE/2 && px < TOWER_OFFSET - TOWER_SIZE/2 &&
-            pz > -TOWER_OFFSET - CATWALK_WIDTH/2 && pz < -TOWER_OFFSET + CATWALK_WIDTH/2) {
-            if (feetY >= PLATFORM_LEVEL - 0.5f && _metalView.velocityY <= 0) {
-                _metalView.posY = PLATFORM_LEVEL + currentPlayerHeight;
-                _metalView.velocityY = 0;
-                _metalView.onGround = YES;
-            }
-        }
+        CHECK_PLATFORM_LANDING(-TOWER_OFFSET + TOWER_SIZE/2, -TOWER_OFFSET - CATWALK_WIDTH/2,
+                               TOWER_OFFSET - TOWER_SIZE/2, -TOWER_OFFSET + CATWALK_WIDTH/2, PLATFORM_LEVEL);
         // East catwalk
-        if (px > TOWER_OFFSET - CATWALK_WIDTH/2 && px < TOWER_OFFSET + CATWALK_WIDTH/2 &&
-            pz > -TOWER_OFFSET + TOWER_SIZE/2 && pz < TOWER_OFFSET - TOWER_SIZE/2) {
-            if (feetY >= PLATFORM_LEVEL - 0.5f && _metalView.velocityY <= 0) {
-                _metalView.posY = PLATFORM_LEVEL + currentPlayerHeight;
-                _metalView.velocityY = 0;
-                _metalView.onGround = YES;
-            }
-        }
+        CHECK_PLATFORM_LANDING(TOWER_OFFSET - CATWALK_WIDTH/2, -TOWER_OFFSET + TOWER_SIZE/2,
+                               TOWER_OFFSET + CATWALK_WIDTH/2, TOWER_OFFSET - TOWER_SIZE/2, PLATFORM_LEVEL);
         // West catwalk
-        if (px > -TOWER_OFFSET - CATWALK_WIDTH/2 && px < -TOWER_OFFSET + CATWALK_WIDTH/2 &&
-            pz > -TOWER_OFFSET + TOWER_SIZE/2 && pz < TOWER_OFFSET - TOWER_SIZE/2) {
-            if (feetY >= PLATFORM_LEVEL - 0.5f && _metalView.velocityY <= 0) {
-                _metalView.posY = PLATFORM_LEVEL + currentPlayerHeight;
-                _metalView.velocityY = 0;
-                _metalView.onGround = YES;
-            }
-        }
+        CHECK_PLATFORM_LANDING(-TOWER_OFFSET - CATWALK_WIDTH/2, -TOWER_OFFSET + TOWER_SIZE/2,
+                               -TOWER_OFFSET + CATWALK_WIDTH/2, TOWER_OFFSET - TOWER_SIZE/2, PLATFORM_LEVEL);
 
-        // Cargo container tops - allow standing on them
-        // Positions match GeometryBuilder.m exactly: {x, z, rotated}
-        // rotated=1 means length/width are swapped
+        // Cargo containers
         struct { float x, z; int rotated; float topY; } containerPlatforms[] = {
             {8.0f, 4.0f, 0, FLOOR_Y + CONTAINER_HEIGHT},
             {8.5f, 6.5f, 1, FLOOR_Y + CONTAINER_HEIGHT},
@@ -409,7 +368,7 @@
             {-6.0f, -8.0f, 1, FLOOR_Y + CONTAINER_HEIGHT},
             {0.0f, -12.0f, 0, FLOOR_Y + CONTAINER_HEIGHT},
             {12.0f, 0.0f, 1, FLOOR_Y + CONTAINER_HEIGHT},
-            {8.0f, 4.0f, 0, FLOOR_Y + CONTAINER_HEIGHT * 2}  // Stacked container on top of first
+            {8.0f, 4.0f, 0, FLOOR_Y + CONTAINER_HEIGHT * 2}  // Stacked container
         };
 
         for (int c = 0; c < 9; c++) {
@@ -418,45 +377,36 @@
             float cz = containerPlatforms[c].z;
             float cxl = containerPlatforms[c].rotated ? CONTAINER_WIDTH/2 : CONTAINER_LENGTH/2;
             float czl = containerPlatforms[c].rotated ? CONTAINER_LENGTH/2 : CONTAINER_WIDTH/2;
-
-            if (px > cx - cxl && px < cx + cxl &&
-                pz > cz - czl && pz < cz + czl) {
-                // Allow landing from above - check if feet are at or above container top
-                if (feetY >= cy - 0.5f && _metalView.velocityY <= 0) {
-                    _metalView.posY = cy + currentPlayerHeight;
-                    _metalView.velocityY = 0;
-                    _metalView.onGround = YES;
-                }
-            }
+            CHECK_PLATFORM_LANDING(cx - cxl, cz - czl, cx + cxl, cz + czl, cy);
         }
 
-        // Command building second floor platform (from GeometryBuilder.m: floorY = FLOOR_Y + CMD_BUILDING_HEIGHT/2)
-        // The floor has a stair hole in the center (2x2 units)
-        float floorY = FLOOR_Y + CMD_BUILDING_HEIGHT / 2.0f;
-        float stairHoleW = 2.0f / 2.0f;  // half-width
-        float stairHoleD = 2.0f / 2.0f;  // half-depth
+        // Command building second floor
+        float hw = CMD_BUILDING_WIDTH / 2.0f;
+        float hd = CMD_BUILDING_DEPTH / 2.0f;
+        float secondFloorY = FLOOR_Y + CMD_BUILDING_HEIGHT / 2.0f;
+        float stairHoleW = 1.0f;  // half-width of stair hole
+        float stairHoleD = 1.0f;  // half-depth of stair hole
         float innerWall = CMD_WALL_THICK;
 
-        // Check if player is inside building on second floor (not in stair hole)
+        // Check if inside building but not in stair hole
         if (px > CMD_BUILDING_X - hw + innerWall && px < CMD_BUILDING_X + hw - innerWall &&
             pz > CMD_BUILDING_Z - hd + innerWall && pz < CMD_BUILDING_Z + hd - innerWall) {
-            // Not in the stair hole area
             BOOL inStairHole = (px > CMD_BUILDING_X - stairHoleW && px < CMD_BUILDING_X + stairHoleW &&
                                pz > CMD_BUILDING_Z - stairHoleD && pz < CMD_BUILDING_Z + stairHoleD);
             if (!inStairHole) {
-                // Allow landing from above on second floor
-                if (feetY >= floorY - 0.5f && feetY <= floorY + 1.0f && _metalView.velocityY <= 0) {
-                    _metalView.posY = floorY + currentPlayerHeight;
-                    _metalView.velocityY = 0;
-                    _metalView.onGround = YES;
+                float dist = feetY - secondFloorY;
+                if (dist >= -landingTolerance && dist <= groundTolerance && velY <= 0.001f) {
+                    if (secondFloorY > bestGroundY) {
+                        bestGroundY = secondFloorY;
+                        foundGround = YES;
+                    }
                 }
             }
         }
 
-        // Command building interior stairs (6 steps from GeometryBuilder.m)
-        // Stairs go from FLOOR_Y to floorY, positioned at center-front of building
+        // Command building stairs (6 steps)
         int cmdNumSteps = 6;
-        float cmdStepH = (floorY - FLOOR_Y) / cmdNumSteps;
+        float cmdStepH = (secondFloorY - FLOOR_Y) / cmdNumSteps;
         float cmdStepD = stairHoleD * 2 / cmdNumSteps;
         float cmdStairX = CMD_BUILDING_X - stairHoleW + 0.1f;
         float cmdStairW = stairHoleW * 2 - 0.2f;
@@ -468,31 +418,25 @@
 
             if (px > cmdStairX && px < cmdStairX + cmdStairW &&
                 pz > stepZEnd && pz < stepZStart) {
-                if (feetY >= stepTop - 0.3f && feetY <= stepTop + 0.3f && _metalView.velocityY <= 0) {
-                    _metalView.posY = stepTop + currentPlayerHeight;
-                    _metalView.velocityY = 0;
-                    _metalView.onGround = YES;
+                float dist = feetY - stepTop;
+                if (dist >= -landingTolerance && dist <= groundTolerance + 0.1f && velY <= 0.001f) {
+                    if (stepTop > bestGroundY) {
+                        bestGroundY = stepTop;
+                        foundGround = YES;
+                    }
                 }
             }
         }
 
-        // Guard tower ramps (from GeometryBuilder.m)
-        // Each tower has a ramp going diagonally from platform to ground
-        float rampW = RAMP_WIDTH / 2.0f;
+        // Guard tower ramps
+        float rampHalfW = RAMP_WIDTH / 2.0f;
         float rampL = RAMP_LENGTH;
         float ts = TOWER_SIZE / 2.0f;
         float platY = FLOOR_Y + TOWER_HEIGHT;
 
-        float towerPos[4][2] = {
-            {TOWER_OFFSET, TOWER_OFFSET},
-            {-TOWER_OFFSET, TOWER_OFFSET},
-            {-TOWER_OFFSET, -TOWER_OFFSET},
-            {TOWER_OFFSET, -TOWER_OFFSET}
-        };
-
         for (int t = 0; t < 4; t++) {
-            float tx = towerPos[t][0];
-            float tz = towerPos[t][1];
+            float tx = towerPositions[t][0];
+            float tz = towerPositions[t][1];
             float rampDx = (tx > 0) ? -1.0f : 1.0f;
             float rampDz = (tz > 0) ? -1.0f : 1.0f;
 
@@ -501,221 +445,303 @@
             float rampEndX = rampStartX + rampDx * rampL;
             float rampEndZ = rampStartZ + rampDz * rampL;
 
-            // Ramp bounds (diagonal rectangle)
-            float rampMinX = fminf(rampStartX, rampEndX) - rampW * fabsf(rampDz);
-            float rampMaxX = fmaxf(rampStartX, rampEndX) + rampW * fabsf(rampDz);
-            float rampMinZ = fminf(rampStartZ, rampEndZ) - rampW * fabsf(rampDx);
-            float rampMaxZ = fmaxf(rampStartZ, rampEndZ) + rampW * fabsf(rampDx);
+            float rampMinX = fminf(rampStartX, rampEndX) - rampHalfW * fabsf(rampDz);
+            float rampMaxX = fmaxf(rampStartX, rampEndX) + rampHalfW * fabsf(rampDz);
+            float rampMinZ = fminf(rampStartZ, rampEndZ) - rampHalfW * fabsf(rampDx);
+            float rampMaxZ = fmaxf(rampStartZ, rampEndZ) + rampHalfW * fabsf(rampDx);
 
             if (px > rampMinX && px < rampMaxX && pz > rampMinZ && pz < rampMaxZ) {
-                // Calculate height along ramp based on position
                 float progressX = (px - rampEndX) / (rampStartX - rampEndX);
                 float progressZ = (pz - rampEndZ) / (rampStartZ - rampEndZ);
                 float progress = (fabsf(rampStartX - rampEndX) > fabsf(rampStartZ - rampEndZ)) ? progressX : progressZ;
                 progress = fmaxf(0.0f, fminf(1.0f, progress));
                 float rampY = FLOOR_Y + progress * (platY - FLOOR_Y);
 
-                if (feetY >= rampY - 0.3f && feetY <= rampY + 0.5f && _metalView.velocityY <= 0) {
-                    _metalView.posY = rampY + currentPlayerHeight;
-                    _metalView.velocityY = 0;
-                    _metalView.onGround = YES;
+                float dist = feetY - rampY;
+                if (dist >= -landingTolerance && dist <= groundTolerance + 0.2f && velY <= 0.001f) {
+                    if (rampY > bestGroundY) {
+                        bestGroundY = rampY;
+                        foundGround = YES;
+                    }
                 }
             }
         }
 
-        // Bunker floor (underground at BASEMENT_LEVEL)
+        // Bunker floor and stairs
         float bx = BUNKER_X;
         float bz = BUNKER_Z;
         float bhw = BUNKER_WIDTH / 2.0f;
         float bhd = BUNKER_DEPTH / 2.0f;
         float bwt = 0.4f;
-        float bunkerFloorY = BASEMENT_LEVEL;
 
+        // Bunker interior floor
         if (px > bx - bhw + bwt && px < bx + bhw - bwt &&
             pz > bz - bhd + bwt && pz < bz + bhd - bwt) {
-            if (feetY >= bunkerFloorY - 0.1f && feetY <= bunkerFloorY + 0.3f && _metalView.velocityY <= 0) {
-                _metalView.posY = bunkerFloorY + currentPlayerHeight;
-                _metalView.velocityY = 0;
-                _metalView.onGround = YES;
+            float dist = feetY - BASEMENT_LEVEL;
+            if (dist >= -landingTolerance && dist <= groundTolerance && velY <= 0.001f) {
+                if (BASEMENT_LEVEL > bestGroundY) {
+                    bestGroundY = BASEMENT_LEVEL;
+                    foundGround = YES;
+                }
             }
         }
 
-        // Bunker stairs (8 steps from GeometryBuilder.m going from FLOOR_Y down to BASEMENT_LEVEL)
+        // Bunker stairs (8 steps)
         int bunkerNumSteps = 8;
         float bunkerStepH = (FLOOR_Y - BASEMENT_LEVEL) / bunkerNumSteps;
         float bunkerStepD = (bhd * 2 - bwt * 2) / bunkerNumSteps;
         float bsw = BUNKER_STAIR_WIDTH / 2.0f;
 
         for (int i = 0; i < bunkerNumSteps; i++) {
-            float stepTop = FLOOR_Y - (i + 1) * bunkerStepH + bunkerStepH;  // top of this step
+            float stepTop = FLOOR_Y - i * bunkerStepH;
             float stepZStart = bz + bhd - bwt - i * bunkerStepD;
             float stepZEnd = stepZStart - bunkerStepD;
 
-            if (px > bx - bsw && px < bx + bsw &&
-                pz > stepZEnd && pz < stepZStart) {
-                if (feetY >= stepTop - bunkerStepH - 0.1f && feetY <= stepTop + 0.3f && _metalView.velocityY <= 0) {
-                    _metalView.posY = stepTop + currentPlayerHeight;
-                    _metalView.velocityY = 0;
-                    _metalView.onGround = YES;
+            if (px > bx - bsw && px < bx + bsw && pz > stepZEnd && pz < stepZStart) {
+                float dist = feetY - stepTop;
+                if (dist >= -landingTolerance && dist <= groundTolerance + 0.2f && velY <= 0.001f) {
+                    if (stepTop > bestGroundY) {
+                        bestGroundY = stepTop;
+                        foundGround = YES;
+                    }
                 }
             }
         }
-    }
+
+        // --- Apply ground collision ---
+        if (foundGround && feetY <= bestGroundY + groundTolerance) {
+            _metalView.posY = bestGroundY + PLAYER_HEIGHT;
+            _metalView.velocityY = 0;
+            _metalView.onGround = YES;
+        }
+
+        // Update position variables after ground snap
+        py = _metalView.posY;
+        feetY = py - PLAYER_HEIGHT;
+
+        #undef CHECK_PLATFORM_LANDING
 
     // Wall collision (military base)
-    {
-        float px = _metalView.posX;
-        float py = _metalView.posY;
-        float pz = _metalView.posZ;  // Use raw coordinates for collision
-        float wallCollisionHeight = _metalView.currentHeight > 0 ? _metalView.currentHeight : PLAYER_HEIGHT;
-        float feetY = py - wallCollisionHeight;
+        // --- STEP 5: Wall/solid collision ---
+        // This runs AFTER ground detection to prevent horizontal collision
+        // from interfering with vertical landing
+
         float headY = py + 0.1f;
 
-        float hw = CMD_BUILDING_WIDTH / 2.0f;
-        float hd = CMD_BUILDING_DEPTH / 2.0f;
+        float wallHw = CMD_BUILDING_WIDTH / 2.0f;
+        float wallHd = CMD_BUILDING_DEPTH / 2.0f;
         float wt = CMD_WALL_THICK;
         float fy = FLOOR_Y;
         float wh = CMD_BUILDING_HEIGHT;
         float dw = CMD_DOOR_WIDTH / 2.0f;
         float cw = WALL_WIDTH / 2.0f;
         float cd = WALL_DEPTH / 2.0f;
+        float towerTs = TOWER_SIZE / 2.0f;
+        float legW = 0.3f;
 
-        // Tower leg dimensions from GeometryBuilder.m
-        float ts = TOWER_SIZE / 2.0f;  // 1.5f half-size
-        float legW = 0.3f;             // leg width from geometry
-
-        // Build wall collision array - command building walls + legacy walls + military structures
+        // Wall collision array
         float walls[][6] = {
-            // Command building walls (4 outer walls + doorway)
-            {CMD_BUILDING_X - hw - wt, CMD_BUILDING_Z - hd - wt, CMD_BUILDING_X + hw + wt, CMD_BUILDING_Z - hd, fy, fy + wh},
-            {CMD_BUILDING_X - hw - wt, CMD_BUILDING_Z - hd, CMD_BUILDING_X - hw, CMD_BUILDING_Z + hd + wt, fy, fy + wh},
-            {CMD_BUILDING_X + hw, CMD_BUILDING_Z - hd, CMD_BUILDING_X + hw + wt, CMD_BUILDING_Z + hd + wt, fy, fy + wh},
-            {CMD_BUILDING_X - hw, CMD_BUILDING_Z + hd, CMD_BUILDING_X - dw, CMD_BUILDING_Z + hd + wt, fy, fy + wh},
-            {CMD_BUILDING_X + dw, CMD_BUILDING_Z + hd, CMD_BUILDING_X + hw, CMD_BUILDING_Z + hd + wt, fy, fy + wh},
-            {CMD_BUILDING_X - dw, CMD_BUILDING_Z + hd, CMD_BUILDING_X + dw, CMD_BUILDING_Z + hd + wt, fy + CMD_DOOR_HEIGHT, fy + wh},
+            // Command building walls
+            {CMD_BUILDING_X - wallHw - wt, CMD_BUILDING_Z - wallHd - wt, CMD_BUILDING_X + wallHw + wt, CMD_BUILDING_Z - wallHd, fy, fy + wh},
+            {CMD_BUILDING_X - wallHw - wt, CMD_BUILDING_Z - wallHd, CMD_BUILDING_X - wallHw, CMD_BUILDING_Z + wallHd + wt, fy, fy + wh},
+            {CMD_BUILDING_X + wallHw, CMD_BUILDING_Z - wallHd, CMD_BUILDING_X + wallHw + wt, CMD_BUILDING_Z + wallHd + wt, fy, fy + wh},
+            {CMD_BUILDING_X - wallHw, CMD_BUILDING_Z + wallHd, CMD_BUILDING_X - dw, CMD_BUILDING_Z + wallHd + wt, fy, fy + wh},
+            {CMD_BUILDING_X + dw, CMD_BUILDING_Z + wallHd, CMD_BUILDING_X + wallHw, CMD_BUILDING_Z + wallHd + wt, fy, fy + wh},
+            {CMD_BUILDING_X - dw, CMD_BUILDING_Z + wallHd, CMD_BUILDING_X + dw, CMD_BUILDING_Z + wallHd + wt, fy + CMD_DOOR_HEIGHT, fy + wh},
             // Legacy cover walls
             {WALL1_X - cw, WALL1_Z - cd, WALL1_X + cw, WALL1_Z + cd, fy, fy + WALL_HEIGHT},
             {WALL2_X - cw, WALL2_Z - cd, WALL2_X + cw, WALL2_Z + cd, fy, fy + WALL_HEIGHT},
-            // Tower 1 (NE: 15,15) - 4 corner legs matching GeometryBuilder.m
-            {TOWER_OFFSET - ts, TOWER_OFFSET - ts, TOWER_OFFSET - ts + legW, TOWER_OFFSET - ts + legW, fy, PLATFORM_LEVEL},
-            {TOWER_OFFSET + ts - legW, TOWER_OFFSET - ts, TOWER_OFFSET + ts, TOWER_OFFSET - ts + legW, fy, PLATFORM_LEVEL},
-            {TOWER_OFFSET - ts, TOWER_OFFSET + ts - legW, TOWER_OFFSET - ts + legW, TOWER_OFFSET + ts, fy, PLATFORM_LEVEL},
-            {TOWER_OFFSET + ts - legW, TOWER_OFFSET + ts - legW, TOWER_OFFSET + ts, TOWER_OFFSET + ts, fy, PLATFORM_LEVEL},
-            // Tower 2 (NW: -15,15) - 4 corner legs
-            {-TOWER_OFFSET - ts, TOWER_OFFSET - ts, -TOWER_OFFSET - ts + legW, TOWER_OFFSET - ts + legW, fy, PLATFORM_LEVEL},
-            {-TOWER_OFFSET + ts - legW, TOWER_OFFSET - ts, -TOWER_OFFSET + ts, TOWER_OFFSET - ts + legW, fy, PLATFORM_LEVEL},
-            {-TOWER_OFFSET - ts, TOWER_OFFSET + ts - legW, -TOWER_OFFSET - ts + legW, TOWER_OFFSET + ts, fy, PLATFORM_LEVEL},
-            {-TOWER_OFFSET + ts - legW, TOWER_OFFSET + ts - legW, -TOWER_OFFSET + ts, TOWER_OFFSET + ts, fy, PLATFORM_LEVEL},
-            // Tower 3 (SW: -15,-15) - 4 corner legs
-            {-TOWER_OFFSET - ts, -TOWER_OFFSET - ts, -TOWER_OFFSET - ts + legW, -TOWER_OFFSET - ts + legW, fy, PLATFORM_LEVEL},
-            {-TOWER_OFFSET + ts - legW, -TOWER_OFFSET - ts, -TOWER_OFFSET + ts, -TOWER_OFFSET - ts + legW, fy, PLATFORM_LEVEL},
-            {-TOWER_OFFSET - ts, -TOWER_OFFSET + ts - legW, -TOWER_OFFSET - ts + legW, -TOWER_OFFSET + ts, fy, PLATFORM_LEVEL},
-            {-TOWER_OFFSET + ts - legW, -TOWER_OFFSET + ts - legW, -TOWER_OFFSET + ts, -TOWER_OFFSET + ts, fy, PLATFORM_LEVEL},
-            // Tower 4 (SE: 15,-15) - 4 corner legs
-            {TOWER_OFFSET - ts, -TOWER_OFFSET - ts, TOWER_OFFSET - ts + legW, -TOWER_OFFSET - ts + legW, fy, PLATFORM_LEVEL},
-            {TOWER_OFFSET + ts - legW, -TOWER_OFFSET - ts, TOWER_OFFSET + ts, -TOWER_OFFSET - ts + legW, fy, PLATFORM_LEVEL},
-            {TOWER_OFFSET - ts, -TOWER_OFFSET + ts - legW, TOWER_OFFSET - ts + legW, -TOWER_OFFSET + ts, fy, PLATFORM_LEVEL},
-            {TOWER_OFFSET + ts - legW, -TOWER_OFFSET + ts - legW, TOWER_OFFSET + ts, -TOWER_OFFSET + ts, fy, PLATFORM_LEVEL},
-            // Cargo containers (8 ground + 1 stacked) - positions from GeometryBuilder.m
-            // Format: {xMin, zMin, xMax, zMax, yMin, yMax}
-            // Non-rotated: length along X, width along Z
-            // Rotated: width along X, length along Z
-            // Container 1: {8.0f, 4.0f, rotated=0}
+            // Tower legs (16 total)
+            {TOWER_OFFSET - towerTs, TOWER_OFFSET - towerTs, TOWER_OFFSET - towerTs + legW, TOWER_OFFSET - towerTs + legW, fy, PLATFORM_LEVEL},
+            {TOWER_OFFSET + towerTs - legW, TOWER_OFFSET - towerTs, TOWER_OFFSET + towerTs, TOWER_OFFSET - towerTs + legW, fy, PLATFORM_LEVEL},
+            {TOWER_OFFSET - towerTs, TOWER_OFFSET + towerTs - legW, TOWER_OFFSET - towerTs + legW, TOWER_OFFSET + towerTs, fy, PLATFORM_LEVEL},
+            {TOWER_OFFSET + towerTs - legW, TOWER_OFFSET + towerTs - legW, TOWER_OFFSET + towerTs, TOWER_OFFSET + towerTs, fy, PLATFORM_LEVEL},
+            {-TOWER_OFFSET - towerTs, TOWER_OFFSET - towerTs, -TOWER_OFFSET - towerTs + legW, TOWER_OFFSET - towerTs + legW, fy, PLATFORM_LEVEL},
+            {-TOWER_OFFSET + towerTs - legW, TOWER_OFFSET - towerTs, -TOWER_OFFSET + towerTs, TOWER_OFFSET - towerTs + legW, fy, PLATFORM_LEVEL},
+            {-TOWER_OFFSET - towerTs, TOWER_OFFSET + towerTs - legW, -TOWER_OFFSET - towerTs + legW, TOWER_OFFSET + towerTs, fy, PLATFORM_LEVEL},
+            {-TOWER_OFFSET + towerTs - legW, TOWER_OFFSET + towerTs - legW, -TOWER_OFFSET + towerTs, TOWER_OFFSET + towerTs, fy, PLATFORM_LEVEL},
+            {-TOWER_OFFSET - towerTs, -TOWER_OFFSET - towerTs, -TOWER_OFFSET - towerTs + legW, -TOWER_OFFSET - towerTs + legW, fy, PLATFORM_LEVEL},
+            {-TOWER_OFFSET + towerTs - legW, -TOWER_OFFSET - towerTs, -TOWER_OFFSET + towerTs, -TOWER_OFFSET - towerTs + legW, fy, PLATFORM_LEVEL},
+            {-TOWER_OFFSET - towerTs, -TOWER_OFFSET + towerTs - legW, -TOWER_OFFSET - towerTs + legW, -TOWER_OFFSET + towerTs, fy, PLATFORM_LEVEL},
+            {-TOWER_OFFSET + towerTs - legW, -TOWER_OFFSET + towerTs - legW, -TOWER_OFFSET + towerTs, -TOWER_OFFSET + towerTs, fy, PLATFORM_LEVEL},
+            {TOWER_OFFSET - towerTs, -TOWER_OFFSET - towerTs, TOWER_OFFSET - towerTs + legW, -TOWER_OFFSET - towerTs + legW, fy, PLATFORM_LEVEL},
+            {TOWER_OFFSET + towerTs - legW, -TOWER_OFFSET - towerTs, TOWER_OFFSET + towerTs, -TOWER_OFFSET - towerTs + legW, fy, PLATFORM_LEVEL},
+            {TOWER_OFFSET - towerTs, -TOWER_OFFSET + towerTs - legW, TOWER_OFFSET - towerTs + legW, -TOWER_OFFSET + towerTs, fy, PLATFORM_LEVEL},
+            {TOWER_OFFSET + towerTs - legW, -TOWER_OFFSET + towerTs - legW, TOWER_OFFSET + towerTs, -TOWER_OFFSET + towerTs, fy, PLATFORM_LEVEL},
+            // Cargo containers
             {8.0f - CONTAINER_LENGTH/2, 4.0f - CONTAINER_WIDTH/2, 8.0f + CONTAINER_LENGTH/2, 4.0f + CONTAINER_WIDTH/2, fy, fy + CONTAINER_HEIGHT},
-            // Container 2: {8.5f, 6.5f, rotated=1}
             {8.5f - CONTAINER_WIDTH/2, 6.5f - CONTAINER_LENGTH/2, 8.5f + CONTAINER_WIDTH/2, 6.5f + CONTAINER_LENGTH/2, fy, fy + CONTAINER_HEIGHT},
-            // Container 3: {-8.0f, 4.0f, rotated=0}
             {-8.0f - CONTAINER_LENGTH/2, 4.0f - CONTAINER_WIDTH/2, -8.0f + CONTAINER_LENGTH/2, 4.0f + CONTAINER_WIDTH/2, fy, fy + CONTAINER_HEIGHT},
-            // Container 4: {-8.5f, 6.5f, rotated=1}
             {-8.5f - CONTAINER_WIDTH/2, 6.5f - CONTAINER_LENGTH/2, -8.5f + CONTAINER_WIDTH/2, 6.5f + CONTAINER_LENGTH/2, fy, fy + CONTAINER_HEIGHT},
-            // Container 5: {6.0f, -8.0f, rotated=1}
             {6.0f - CONTAINER_WIDTH/2, -8.0f - CONTAINER_LENGTH/2, 6.0f + CONTAINER_WIDTH/2, -8.0f + CONTAINER_LENGTH/2, fy, fy + CONTAINER_HEIGHT},
-            // Container 6: {-6.0f, -8.0f, rotated=1}
             {-6.0f - CONTAINER_WIDTH/2, -8.0f - CONTAINER_LENGTH/2, -6.0f + CONTAINER_WIDTH/2, -8.0f + CONTAINER_LENGTH/2, fy, fy + CONTAINER_HEIGHT},
-            // Container 7: {0.0f, -12.0f, rotated=0}
             {0.0f - CONTAINER_LENGTH/2, -12.0f - CONTAINER_WIDTH/2, 0.0f + CONTAINER_LENGTH/2, -12.0f + CONTAINER_WIDTH/2, fy, fy + CONTAINER_HEIGHT},
-            // Container 8: {12.0f, 0.0f, rotated=1}
             {12.0f - CONTAINER_WIDTH/2, 0.0f - CONTAINER_LENGTH/2, 12.0f + CONTAINER_WIDTH/2, 0.0f + CONTAINER_LENGTH/2, fy, fy + CONTAINER_HEIGHT},
-            // Stacked container on top of container 1: {8.0f, 4.0f, rotated=0}
             {8.0f - CONTAINER_LENGTH/2, 4.0f - CONTAINER_WIDTH/2, 8.0f + CONTAINER_LENGTH/2, 4.0f + CONTAINER_WIDTH/2, fy + CONTAINER_HEIGHT, fy + CONTAINER_HEIGHT * 2},
-            // Sandbag walls (10 positions) - from GeometryBuilder.m
-            // Non-rotated: length along X, thick along Z; Rotated: thick along X, length along Z
-            // Visual height is SANDBAG_HEIGHT (1.2), but rendered as two layers totaling ~1.2 units
-            // Sandbag 1: {5.0f, 4.0f, rotated=0}
+            // Sandbag walls
             {5.0f - SANDBAG_LENGTH/2, 4.0f - SANDBAG_THICK/2, 5.0f + SANDBAG_LENGTH/2, 4.0f + SANDBAG_THICK/2, fy, fy + SANDBAG_HEIGHT},
-            // Sandbag 2: {-5.0f, 4.0f, rotated=0}
             {-5.0f - SANDBAG_LENGTH/2, 4.0f - SANDBAG_THICK/2, -5.0f + SANDBAG_LENGTH/2, 4.0f + SANDBAG_THICK/2, fy, fy + SANDBAG_HEIGHT},
-            // Sandbag 3: {5.0f, -4.0f, rotated=0}
             {5.0f - SANDBAG_LENGTH/2, -4.0f - SANDBAG_THICK/2, 5.0f + SANDBAG_LENGTH/2, -4.0f + SANDBAG_THICK/2, fy, fy + SANDBAG_HEIGHT},
-            // Sandbag 4: {-5.0f, -4.0f, rotated=0}
             {-5.0f - SANDBAG_LENGTH/2, -4.0f - SANDBAG_THICK/2, -5.0f + SANDBAG_LENGTH/2, -4.0f + SANDBAG_THICK/2, fy, fy + SANDBAG_HEIGHT},
-            // Sandbag 5: {12.0f, 10.0f, rotated=1}
             {12.0f - SANDBAG_THICK/2, 10.0f - SANDBAG_LENGTH/2, 12.0f + SANDBAG_THICK/2, 10.0f + SANDBAG_LENGTH/2, fy, fy + SANDBAG_HEIGHT},
-            // Sandbag 6: {-12.0f, 10.0f, rotated=1}
             {-12.0f - SANDBAG_THICK/2, 10.0f - SANDBAG_LENGTH/2, -12.0f + SANDBAG_THICK/2, 10.0f + SANDBAG_LENGTH/2, fy, fy + SANDBAG_HEIGHT},
-            // Sandbag 7: {12.0f, -10.0f, rotated=1}
             {12.0f - SANDBAG_THICK/2, -10.0f - SANDBAG_LENGTH/2, 12.0f + SANDBAG_THICK/2, -10.0f + SANDBAG_LENGTH/2, fy, fy + SANDBAG_HEIGHT},
-            // Sandbag 8: {-12.0f, -10.0f, rotated=1}
             {-12.0f - SANDBAG_THICK/2, -10.0f - SANDBAG_LENGTH/2, -12.0f + SANDBAG_THICK/2, -10.0f + SANDBAG_LENGTH/2, fy, fy + SANDBAG_HEIGHT},
-            // Sandbag 9: {3.0f, 8.0f, rotated=1}
             {3.0f - SANDBAG_THICK/2, 8.0f - SANDBAG_LENGTH/2, 3.0f + SANDBAG_THICK/2, 8.0f + SANDBAG_LENGTH/2, fy, fy + SANDBAG_HEIGHT},
-            // Sandbag 10: {-3.0f, 8.0f, rotated=1}
             {-3.0f - SANDBAG_THICK/2, 8.0f - SANDBAG_LENGTH/2, -3.0f + SANDBAG_THICK/2, 8.0f + SANDBAG_LENGTH/2, fy, fy + SANDBAG_HEIGHT},
-            // Arena boundary walls (invisible walls at map edges)
-            {-ARENA_SIZE - 0.5f, -ARENA_SIZE - 0.5f, -ARENA_SIZE, ARENA_SIZE + 0.5f, fy, fy + 10.0f},  // West wall
-            {ARENA_SIZE, -ARENA_SIZE - 0.5f, ARENA_SIZE + 0.5f, ARENA_SIZE + 0.5f, fy, fy + 10.0f},    // East wall
-            {-ARENA_SIZE - 0.5f, -ARENA_SIZE - 0.5f, ARENA_SIZE + 0.5f, -ARENA_SIZE, fy, fy + 10.0f},  // South wall
-            {-ARENA_SIZE - 0.5f, ARENA_SIZE, ARENA_SIZE + 0.5f, ARENA_SIZE + 0.5f, fy, fy + 10.0f},    // North wall
-            // Bunker entrance walls (matching GeometryBuilder.m: entH=1.0f, sw=1.0f half-width)
+            // Arena boundaries
+            {-ARENA_SIZE - 0.5f, -ARENA_SIZE - 0.5f, -ARENA_SIZE, ARENA_SIZE + 0.5f, fy, fy + 10.0f},
+            {ARENA_SIZE, -ARENA_SIZE - 0.5f, ARENA_SIZE + 0.5f, ARENA_SIZE + 0.5f, fy, fy + 10.0f},
+            {-ARENA_SIZE - 0.5f, -ARENA_SIZE - 0.5f, ARENA_SIZE + 0.5f, -ARENA_SIZE, fy, fy + 10.0f},
+            {-ARENA_SIZE - 0.5f, ARENA_SIZE, ARENA_SIZE + 0.5f, ARENA_SIZE + 0.5f, fy, fy + 10.0f},
+            // Bunker walls
             {BUNKER_X - BUNKER_STAIR_WIDTH/2 - 0.4f, BUNKER_Z + BUNKER_DEPTH/2 - 0.4f, BUNKER_X - BUNKER_STAIR_WIDTH/2, BUNKER_Z + BUNKER_DEPTH/2, fy, fy + 1.0f},
             {BUNKER_X + BUNKER_STAIR_WIDTH/2, BUNKER_Z + BUNKER_DEPTH/2 - 0.4f, BUNKER_X + BUNKER_STAIR_WIDTH/2 + 0.4f, BUNKER_Z + BUNKER_DEPTH/2, fy, fy + 1.0f},
-            // Bunker interior walls (underground, bwt=0.4f from GeometryBuilder.m)
-            // Back wall
             {BUNKER_X - BUNKER_WIDTH/2 + 0.4f, BUNKER_Z - BUNKER_DEPTH/2 + 0.4f, BUNKER_X + BUNKER_WIDTH/2 - 0.4f, BUNKER_Z - BUNKER_DEPTH/2 + 0.5f, BASEMENT_LEVEL, fy},
-            // Left wall
             {BUNKER_X - BUNKER_WIDTH/2 + 0.4f, BUNKER_Z - BUNKER_DEPTH/2 + 0.4f, BUNKER_X - BUNKER_WIDTH/2 + 0.5f, BUNKER_Z + BUNKER_DEPTH/2 - 0.4f, BASEMENT_LEVEL, fy},
-            // Right wall
             {BUNKER_X + BUNKER_WIDTH/2 - 0.5f, BUNKER_Z - BUNKER_DEPTH/2 + 0.4f, BUNKER_X + BUNKER_WIDTH/2 - 0.4f, BUNKER_Z + BUNKER_DEPTH/2 - 0.4f, BASEMENT_LEVEL, fy},
-            // Front wall left of stairs
             {BUNKER_X - BUNKER_WIDTH/2 + 0.4f, BUNKER_Z + BUNKER_DEPTH/2 - 0.5f, BUNKER_X - BUNKER_STAIR_WIDTH/2, BUNKER_Z + BUNKER_DEPTH/2 - 0.4f, BASEMENT_LEVEL, fy},
-            // Front wall right of stairs
             {BUNKER_X + BUNKER_STAIR_WIDTH/2, BUNKER_Z + BUNKER_DEPTH/2 - 0.5f, BUNKER_X + BUNKER_WIDTH/2 - 0.4f, BUNKER_Z + BUNKER_DEPTH/2 - 0.4f, BASEMENT_LEVEL, fy},
         };
         int numWalls = 54;
 
+        // Add door collision
         simd_float3 doorMin, doorMax;
         getDoorAABB(&doorMin, &doorMax);
         float doorWall[6] = {doorMin.x, doorMin.z, doorMax.x, doorMax.z, doorMin.y, doorMax.y};
 
-        for (int i = 0; i < numWalls + 1; i++) {
-            float *w = (i < numWalls) ? walls[i] : doorWall;
-            float xMin = w[0], zMin = w[1], xMax = w[2], zMax = w[3], yMin = w[4], yMax = w[5];
+        // Iterate through walls with improved collision resolution
+        // Multiple iterations help resolve corner cases
+        for (int iter = 0; iter < 2; iter++) {
+            px = _metalView.posX;
+            py = _metalView.posY;
+            pz = _metalView.posZ;
+            feetY = py - PLAYER_HEIGHT;
+            headY = py + 0.1f;
 
-            BOOL xOv = px > xMin - PLAYER_RADIUS && px < xMax + PLAYER_RADIUS;
-            BOOL zOv = pz > zMin - PLAYER_RADIUS && pz < zMax + PLAYER_RADIUS;
-            BOOL yOv = feetY < yMax && headY > yMin;
+            for (int i = 0; i < numWalls + 1; i++) {
+                float *w = (i < numWalls) ? walls[i] : doorWall;
+                float xMin = w[0], zMin = w[1], xMax = w[2], zMax = w[3], yMin = w[4], yMax = w[5];
 
-            if (xOv && zOv && yOv) {
-                float penL = px - (xMin - PLAYER_RADIUS);
-                float penR = (xMax + PLAYER_RADIUS) - px;
-                float penN = pz - (zMin - PLAYER_RADIUS);
-                float penF = (zMax + PLAYER_RADIUS) - pz;
+                // Check AABB overlap with player cylinder approximated as box
+                BOOL xOv = px > xMin - PLAYER_RADIUS && px < xMax + PLAYER_RADIUS;
+                BOOL zOv = pz > zMin - PLAYER_RADIUS && pz < zMax + PLAYER_RADIUS;
+                BOOL yOv = feetY < yMax && headY > yMin;
 
-                float minPenX = fminf(penL, penR);
-                float minPenZ = fminf(penN, penF);
+                if (xOv && zOv && yOv) {
+                    // Calculate penetration on each axis
+                    float penLeft = px - (xMin - PLAYER_RADIUS);
+                    float penRight = (xMax + PLAYER_RADIUS) - px;
+                    float penBack = pz - (zMin - PLAYER_RADIUS);
+                    float penFront = (zMax + PLAYER_RADIUS) - pz;
+                    float penDown = headY - yMin;  // How much head is inside from bottom
+                    float penUp = yMax - feetY;    // How much feet are inside from top
 
-                if (minPenX < minPenZ) {
-                    _metalView.posX += (penL < penR) ? -penL : penR;
-                    _metalView.velocityX = 0;
-                } else {
-                    _metalView.posZ += (penN < penF) ? -penN : penF;
-                    _metalView.velocityZ = 0;
+                    float minPenX = fminf(penLeft, penRight);
+                    float minPenZ = fminf(penBack, penFront);
+                    float minPenY = fminf(penDown, penUp);
+
+                    // Find smallest penetration axis to resolve
+                    // Prioritize Y resolution to prevent getting stuck on platform edges
+                    if (minPenY < minPenX && minPenY < minPenZ) {
+                        // Resolve on Y axis
+                        if (penDown < penUp) {
+                            // Push down (hit head on ceiling/platform bottom)
+                            _metalView.posY -= penDown;
+                            if (_metalView.velocityY > 0) _metalView.velocityY = 0;
+                        } else {
+                            // Push up (shouldn't happen often since ground handles this)
+                            _metalView.posY += penUp - PLAYER_HEIGHT;
+                            if (_metalView.velocityY < 0) {
+                                _metalView.velocityY = 0;
+                                _metalView.onGround = YES;
+                            }
+                        }
+                    } else if (minPenX < minPenZ) {
+                        // Resolve on X axis
+                        _metalView.posX += (penLeft < penRight) ? -penLeft : penRight;
+                        _metalView.velocityX = 0;
+                    } else {
+                        // Resolve on Z axis
+                        _metalView.posZ += (penBack < penFront) ? -penBack : penFront;
+                        _metalView.velocityZ = 0;
+                    }
+
+                    // Update cached position
+                    px = _metalView.posX;
+                    py = _metalView.posY;
+                    pz = _metalView.posZ;
+                    feetY = py - PLAYER_HEIGHT;
+                    headY = py + 0.1f;
                 }
-                px = _metalView.posX;
-                pz = _metalView.posZ;  // Use raw coordinates for collision
             }
         }
-    }
+
+        // --- Head collision for platforms (prevent jumping through from below) ---
+        // Check tower platforms from below
+        for (int t = 0; t < 4; t++) {
+            float tx = towerPositions[t][0];
+            float tz = towerPositions[t][1];
+            float platBottom = PLATFORM_LEVEL - CATWALK_THICK;
+
+            if (px > tx - platHalfSize && px < tx + platHalfSize &&
+                pz > tz - platHalfSize && pz < tz + platHalfSize) {
+                if (headY > platBottom && feetY < PLATFORM_LEVEL && _metalView.velocityY > 0) {
+                    _metalView.posY = platBottom - 0.1f;
+                    _metalView.velocityY = 0;
+                }
+            }
+        }
+
+        // Check catwalks from below
+        float catwalkBottom = PLATFORM_LEVEL - CATWALK_THICK;
+        // North catwalk
+        if (px > -TOWER_OFFSET + TOWER_SIZE/2 && px < TOWER_OFFSET - TOWER_SIZE/2 &&
+            pz > TOWER_OFFSET - CATWALK_WIDTH/2 && pz < TOWER_OFFSET + CATWALK_WIDTH/2) {
+            if (headY > catwalkBottom && feetY < PLATFORM_LEVEL && _metalView.velocityY > 0) {
+                _metalView.posY = catwalkBottom - 0.1f;
+                _metalView.velocityY = 0;
+            }
+        }
+        // South catwalk
+        if (px > -TOWER_OFFSET + TOWER_SIZE/2 && px < TOWER_OFFSET - TOWER_SIZE/2 &&
+            pz > -TOWER_OFFSET - CATWALK_WIDTH/2 && pz < -TOWER_OFFSET + CATWALK_WIDTH/2) {
+            if (headY > catwalkBottom && feetY < PLATFORM_LEVEL && _metalView.velocityY > 0) {
+                _metalView.posY = catwalkBottom - 0.1f;
+                _metalView.velocityY = 0;
+            }
+        }
+        // East catwalk
+        if (px > TOWER_OFFSET - CATWALK_WIDTH/2 && px < TOWER_OFFSET + CATWALK_WIDTH/2 &&
+            pz > -TOWER_OFFSET + TOWER_SIZE/2 && pz < TOWER_OFFSET - TOWER_SIZE/2) {
+            if (headY > catwalkBottom && feetY < PLATFORM_LEVEL && _metalView.velocityY > 0) {
+                _metalView.posY = catwalkBottom - 0.1f;
+                _metalView.velocityY = 0;
+            }
+        }
+        // West catwalk
+        if (px > -TOWER_OFFSET - CATWALK_WIDTH/2 && px < -TOWER_OFFSET + CATWALK_WIDTH/2 &&
+            pz > -TOWER_OFFSET + TOWER_SIZE/2 && pz < TOWER_OFFSET - TOWER_SIZE/2) {
+            if (headY > catwalkBottom && feetY < PLATFORM_LEVEL && _metalView.velocityY > 0) {
+                _metalView.posY = catwalkBottom - 0.1f;
+                _metalView.velocityY = 0;
+            }
+        }
+
+        // --- Footstep sounds ---
+        float currentSpeed = sqrtf(_metalView.velocityX * _metalView.velocityX +
+                                   _metalView.velocityZ * _metalView.velocityZ);
+        if (_metalView.onGround && currentSpeed > 0.03f) {
+            state.footstepTimer++;
+            if (state.footstepTimer >= 20) {
+                state.footstepTimer = 0;
+                [[SoundManager shared] playFootstepSound];
+            }
+        } else {
+            state.footstepTimer = 12;
+        }
+
+    } // End of physics/collision block
 
     simd_float3 camPos = {_metalView.posX, _metalView.posY, _metalView.posZ};
 

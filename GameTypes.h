@@ -5,8 +5,11 @@
 #import <simd/simd.h>
 #import <stdbool.h>
 
-// Use bool for C compatibility, BOOL for Objective-C
-#ifndef __OBJC__
+// For Objective-C, BOOL is already defined by the runtime
+// For pure C, we need to define it
+#ifdef __OBJC__
+#import <objc/objc.h>  // Provides BOOL, YES, NO in Objective-C
+#else
 typedef bool BOOL;
 #define YES true
 #define NO false
