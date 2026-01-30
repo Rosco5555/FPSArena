@@ -223,28 +223,17 @@
     _remotePlayerAlive = YES;
     _remoteRespawnTimer = 0;
 
-    // Position players at random spawn points that are far apart
-    // Use pairs of spawn points that are on opposite sides of the map:
-    // Pair 0: spawns 0 (command building) and 2 (east cargo)
-    // Pair 1: spawns 1 (bunker) and 3 (NE tower)
-    // Pair 2: spawns 4 (west sandbags) and 5 (SW tower)
-    int spawnPairs[3][2] = {{0, 2}, {1, 3}, {4, 5}};
+    // Position players at OPPOSITE spawn points - deterministic based on host/client
+    // Spawn 0 (command building) and Spawn 2 (east cargo) are far apart
+    // Host ALWAYS gets spawn 0, Client ALWAYS gets spawn 2
+    int hostSpawnIndex = 0;   // Command building
+    int clientSpawnIndex = 2; // East cargo (opposite side of map)
 
-    // Pick a random pair
-    int pairIndex = arc4random_uniform(3);
-
-    // Randomly assign which player gets which spawn in the pair
-    int swapSpawns = arc4random_uniform(2);
-    int localSpawnIndex = spawnPairs[pairIndex][swapSpawns];
-    int remoteSpawnIndex = spawnPairs[pairIndex][1 - swapSpawns];
+    int localSpawnIndex = _isHost ? hostSpawnIndex : clientSpawnIndex;
+    int remoteSpawnIndex = _isHost ? clientSpawnIndex : hostSpawnIndex;
 
     SpawnPoint *localSpawn = [self getSpawnPoint:localSpawnIndex];
     SpawnPoint *remoteSpawn = [self getSpawnPoint:remoteSpawnIndex];
-
-    if (localSpawn) {
-        // Local player position will be set by resetPlayerWithPosX when game starts
-        // Store the spawn index for later use
-    }
 
     if (remoteSpawn) {
         _remotePlayerPosX = remoteSpawn->x;
