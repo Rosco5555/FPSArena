@@ -279,7 +279,10 @@ CombatHitResult processProjectileHit(simd_float3 muzzle, simd_float3 dir, int da
             RayHitResult eHit = rayIntersectAABB(muzzle, dir, eMin, eMax);
             if (eHit.hit && eHit.t < maxDist) {
                 enemyHealth[e] -= damage;
-                if (enemyHealth[e] <= 0) enemyAlive[e] = NO;
+                if (enemyHealth[e] <= 0) {
+                    enemyAlive[e] = NO;
+                    state.enemyRespawnTimer[e] = ENEMY_RESPAWN_DELAY;
+                }
                 maxDist = eHit.t;
 
                 hitResult.type = HitResultEnemyAI;
@@ -335,7 +338,10 @@ void applySplashDamage(simd_float3 hitPoint, float radius, int damage) {
                 float falloff = 1.0f - (dist / radius);
                 int splashDmg = (int)(damage * falloff);
                 enemyHealth[e] -= splashDmg;
-                if (enemyHealth[e] <= 0) enemyAlive[e] = NO;
+                if (enemyHealth[e] <= 0) {
+                    enemyAlive[e] = NO;
+                    state.enemyRespawnTimer[e] = ENEMY_RESPAWN_DELAY;
+                }
             }
         }
     }

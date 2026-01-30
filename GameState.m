@@ -10,6 +10,7 @@
     float _enemyYStorage[NUM_ENEMIES];
     float _enemyZStorage[NUM_ENEMIES];
     int _enemyFireTimerStorage[NUM_ENEMIES];
+    int _enemyRespawnTimerStorage[NUM_ENEMIES];
 
     // Multiplayer spawn points
     SpawnPoint _spawnPointsStorage[NUM_SPAWN_POINTS];
@@ -96,6 +97,7 @@
 - (float *)enemyY { return _enemyYStorage; }
 - (float *)enemyZ { return _enemyZStorage; }
 - (int *)enemyFireTimer { return _enemyFireTimerStorage; }
+- (int *)enemyRespawnTimer { return _enemyRespawnTimerStorage; }
 
 // Accessor for spawn points
 - (SpawnPoint *)spawnPoints { return _spawnPointsStorage; }

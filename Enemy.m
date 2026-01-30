@@ -848,8 +848,34 @@ void updateEnemyAI(simd_float3 camPos, BOOL controlsActive) {
     float *enemyY = state.enemyY;
     float *enemyZ = state.enemyZ;
 
+    int *enemyHealth = state.enemyHealth;
+    int *enemyRespawnTimer = state.enemyRespawnTimer;
+
     for (int e = 0; e < NUM_ENEMIES; e++) {
-        if (!enemyAlive[e]) continue;
+        // Handle enemy respawning
+        if (!enemyAlive[e]) {
+            if (enemyRespawnTimer[e] > 0) {
+                enemyRespawnTimer[e]--;
+                if (enemyRespawnTimer[e] == 0) {
+                    // Respawn the enemy at their starting position
+                    enemyAlive[e] = YES;
+                    enemyHealth[e] = ENEMY_MAX_HEALTH;
+                    enemyX[e] = ENEMY_START_X[e];
+                    enemyY[e] = ENEMY_START_Y[e];
+                    enemyZ[e] = ENEMY_START_Z[e];
+                    botAI[e].velocityX = 0;
+                    botAI[e].velocityY = 0;
+                    botAI[e].velocityZ = 0;
+                    botAI[e].playerSpotted = NO;
+                    botAI[e].reactionTimer = 0;
+                    botAI[e].spottingTimer = 0;
+                    botAI[e].canShoot = NO;
+                    botAI[e].onGround = YES;
+                    botAI[e].isActive = YES;
+                }
+            }
+            continue;
+        }
 
         // Handle staggered activation - decrement timer and activate when ready
         if (!botAI[e].isActive) {

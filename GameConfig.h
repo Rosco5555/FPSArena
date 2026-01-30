@@ -25,6 +25,7 @@ static const int ENEMY_MAX_HEALTH = 30;
 static const int PLAYER_DAMAGE = 15;  // 2 shots to kill enemy
 static const int ENEMY_DAMAGE = 20;   // 5 shots to kill player
 static const int NUM_ENEMIES = 6;
+static const int ENEMY_RESPAWN_DELAY = 180;  // 3 seconds at 60fps
 static const int PLAYER_FIRE_RATE = 8;
 static const int ENEMY_FIRE_RATE_MIN = 30;
 static const int ENEMY_FIRE_RATE_VAR = 20;

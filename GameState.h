@@ -60,6 +60,7 @@ typedef struct {
 @property (nonatomic, readonly) float *enemyY;
 @property (nonatomic, readonly) float *enemyZ;
 @property (nonatomic, readonly) int *enemyFireTimer;
+@property (nonatomic, readonly) int *enemyRespawnTimer;
 
 // Combat state
 @property (nonatomic) int muzzleFlashTimer;
