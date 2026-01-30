@@ -19,8 +19,10 @@
 @property (nonatomic, strong) DraggableMetalView *metalView;
 @property (nonatomic, strong) MetalRenderer *renderer;
 @property (nonatomic, strong) id<MTLDevice> device;
+@property (nonatomic, strong) NSTimer *networkPollTimer;
 - (void)showLobby;
 - (void)startGameWithMultiplayer:(BOOL)multiplayer;
+- (void)pollNetworkInLobby;
 @end
 
 @implementation GameController
@@ -52,9 +54,28 @@
     // Show cursor for lobby
     CGAssociateMouseAndMouseCursorPosition(true);
     [NSCursor unhide];
+
+    // Start network polling timer for lobby (needed for connection handshake)
+    if (!_networkPollTimer) {
+        _networkPollTimer = [NSTimer scheduledTimerWithTimeInterval:1.0/60.0
+                                                             target:self
+                                                           selector:@selector(pollNetworkInLobby)
+                                                           userInfo:nil
+                                                            repeats:YES];
+    }
+}
+
+- (void)pollNetworkInLobby {
+    [[NetworkManager shared] pollNetwork];
 }
 
 - (void)startGameWithMultiplayer:(BOOL)multiplayer {
+    // Stop lobby network polling timer
+    if (_networkPollTimer) {
+        [_networkPollTimer invalidate];
+        _networkPollTimer = nil;
+    }
+
     // Remove lobby
     if (_lobbyView) {
         [_lobbyView removeFromSuperview];
