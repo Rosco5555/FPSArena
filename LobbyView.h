@@ -38,6 +38,10 @@ typedef NS_ENUM(NSInteger, LobbyState) {
 @property (nonatomic, assign) BOOL playerOneReady;
 @property (nonatomic, assign) BOOL playerTwoReady;
 
+// IP input for manual connection
+@property (nonatomic, strong) NSMutableString *ipInputText;
+@property (nonatomic, assign) BOOL ipInputFocused;
+
 // Update the lobby state
 - (void)transitionToState:(LobbyState)newState;
 
