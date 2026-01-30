@@ -195,6 +195,27 @@
     gameState.remotePlayerAlive = YES;
 }
 
+- (void)networkManager:(id)manager didReceiveHit:(int)damage toPlayer:(uint32_t)playerId fromPlayer:(uint32_t)shooterId {
+    GameState *gameState = [GameState shared];
+    NSLog(@"[NETWORK] Received hit: %d damage to player %u from player %u (local=%d)", damage, playerId, shooterId, gameState.localPlayerId);
+
+    // Apply damage if we're the target
+    if (playerId == (uint32_t)gameState.localPlayerId) {
+        NSLog(@"[NETWORK] Applying %d damage to local player! Health: %d -> %d", damage, gameState.playerHealth, gameState.playerHealth - damage);
+        gameState.playerHealth -= damage;
+        gameState.damageCooldownTimer = 0;
+        gameState.bloodLevel += 0.25f;
+        if (gameState.bloodLevel > 1.0f) gameState.bloodLevel = 1.0f;
+        gameState.bloodFlashTimer = 8;
+
+        if (gameState.playerHealth <= 0) {
+            gameState.playerHealth = 0;
+            gameState.gameOver = YES;
+            NSLog(@"[NETWORK] Local player killed!");
+        }
+    }
+}
+
 #pragma mark - InputViewDelegate
 
 - (void)inputViewDidRequestMenu {
