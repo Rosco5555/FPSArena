@@ -117,11 +117,13 @@
 }
 
 - (void)lobbyDidStartHosting {
+    [NetworkManager shared].delegate = self;  // Ensure we get connection callbacks
     [[MultiplayerController shared] hostGame];
 }
 
 - (void)lobbyDidConnectToHost:(NSString *)hostIP {
     [[NetworkManager shared] stopLANDiscovery];
+    [NetworkManager shared].delegate = self;  // Ensure we get connection callbacks
     [[MultiplayerController shared] joinGameAtHost:hostIP];
 }
 
