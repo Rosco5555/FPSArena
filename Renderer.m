@@ -262,13 +262,13 @@
 
     // Gravity and jumping - determine base floor level first
     float px = _metalView.posX;
-    float pz = -3.0f + _metalView.posZ;
+    float pz = _metalView.posZ;  // Use raw coordinates for collision
 
     // Check if player is in bunker area (underground floor)
     float bunkerMinX = BUNKER_X - BUNKER_WIDTH/2;
     float bunkerMaxX = BUNKER_X + BUNKER_WIDTH/2;
     float bunkerMinZ = BUNKER_Z - BUNKER_DEPTH/2;
-    float bunkerMaxZ = BUNKER_Z + BUNKER_DEPTH/2 + 3.0f;  // Include stair entrance area
+    float bunkerMaxZ = BUNKER_Z + BUNKER_DEPTH/2;  // Include stair entrance area
 
     BOOL inBunkerArea = (px > bunkerMinX && px < bunkerMaxX &&
                          pz > bunkerMinZ && pz < bunkerMaxZ);
@@ -291,7 +291,7 @@
     // Platform/roof collision (for standing on elevated surfaces)
     {
         float px = _metalView.posX;
-        float pz = -3.0f + _metalView.posZ;
+        float pz = _metalView.posZ;  // Use raw coordinates for collision
         float feetY = _metalView.posY - PLAYER_HEIGHT;
 
         // Command building roof collision (block from going through)
@@ -539,7 +539,7 @@
     {
         float px = _metalView.posX;
         float py = _metalView.posY;
-        float pz = -3.0f + _metalView.posZ;
+        float pz = _metalView.posZ;  // Use raw coordinates for collision
         float feetY = py - PLAYER_HEIGHT;
         float headY = py + 0.1f;
 
@@ -684,12 +684,12 @@
                     _metalView.velocityZ = 0;
                 }
                 px = _metalView.posX;
-                pz = -3.0f + _metalView.posZ;
+                pz = _metalView.posZ;  // Use raw coordinates for collision
             }
         }
     }
 
-    simd_float3 camPos = {_metalView.posX, _metalView.posY, -3.0f + _metalView.posZ};
+    simd_float3 camPos = {_metalView.posX, _metalView.posY, _metalView.posZ};
 
     // Update door proximity
     state.playerNearDoor = checkPlayerNearDoor(camPos);
@@ -742,7 +742,7 @@
 
     // Build matrices
     CameraBasis camBasis = computeCameraBasis(_metalView.camYaw, _metalView.camPitch);
-    float camX = _metalView.posX, camY = _metalView.posY, camZ = -3.0f + _metalView.posZ;
+    float camX = _metalView.posX, camY = _metalView.posY, camZ = _metalView.posZ;
     float fx = camBasis.forward.x, fy = camBasis.forward.y, fz = camBasis.forward.z;
     float rx = camBasis.right.x, ry = camBasis.right.y, rz = camBasis.right.z;
     float ux = camBasis.up.x, uy = camBasis.up.y, uz = camBasis.up.z;
