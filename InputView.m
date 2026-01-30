@@ -32,8 +32,9 @@
 
 - (void)mouseMoved:(NSEvent *)event {
     if (!_controlsActive) return;
-    _camYaw += event.deltaX * MOUSE_SENSITIVITY;
-    _camPitch -= event.deltaY * MOUSE_SENSITIVITY;
+    float sensitivity = [GameState shared].mouseSensitivity;
+    _camYaw += event.deltaX * sensitivity;
+    _camPitch -= event.deltaY * sensitivity;
     if (_camPitch > 1.5) _camPitch = 1.5;
     if (_camPitch < -1.5) _camPitch = -1.5;
 }
@@ -131,6 +132,17 @@
             if (!state.gameOver) {
                 [[WeaponSystem shared] switchWeapon:WeaponTypeRocketLauncher];
             }
+            break;
+        // Sensitivity adjustment with [ and ]
+        case '[':
+            state.mouseSensitivity -= 0.001f;
+            if (state.mouseSensitivity < 0.001f) state.mouseSensitivity = 0.001f;
+            NSLog(@"Sensitivity: %.3f", state.mouseSensitivity);
+            break;
+        case ']':
+            state.mouseSensitivity += 0.001f;
+            if (state.mouseSensitivity > 0.02f) state.mouseSensitivity = 0.02f;
+            NSLog(@"Sensitivity: %.3f", state.mouseSensitivity);
             break;
     }
 }

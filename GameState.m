@@ -85,6 +85,9 @@
         // Set default kill limit
         _killLimit = DEFAULT_KILL_LIMIT;
 
+        // Default mouse sensitivity
+        _mouseSensitivity = MOUSE_SENSITIVITY;
+
         [self resetGame];
     }
     return self;
@@ -220,14 +223,27 @@
     _remotePlayerAlive = YES;
     _remoteRespawnTimer = 0;
 
-    // Position players at different spawn points based on host status
-    // Host gets spawn point 0, client gets spawn point 2 (opposite corners)
-    SpawnPoint *localSpawn = [self getSpawnPoint:(_isHost ? 0 : 2)];
-    SpawnPoint *remoteSpawn = [self getSpawnPoint:(_isHost ? 2 : 0)];
+    // Position players at random spawn points that are far apart
+    // Use pairs of spawn points that are on opposite sides of the map:
+    // Pair 0: spawns 0 (command building) and 2 (east cargo)
+    // Pair 1: spawns 1 (bunker) and 3 (NE tower)
+    // Pair 2: spawns 4 (west sandbags) and 5 (SW tower)
+    int spawnPairs[3][2] = {{0, 2}, {1, 3}, {4, 5}};
+
+    // Pick a random pair
+    int pairIndex = arc4random_uniform(3);
+
+    // Randomly assign which player gets which spawn in the pair
+    int swapSpawns = arc4random_uniform(2);
+    int localSpawnIndex = spawnPairs[pairIndex][swapSpawns];
+    int remoteSpawnIndex = spawnPairs[pairIndex][1 - swapSpawns];
+
+    SpawnPoint *localSpawn = [self getSpawnPoint:localSpawnIndex];
+    SpawnPoint *remoteSpawn = [self getSpawnPoint:remoteSpawnIndex];
 
     if (localSpawn) {
         // Local player position will be set by resetPlayerWithPosX when game starts
-        // Just store for reference
+        // Store the spawn index for later use
     }
 
     if (remoteSpawn) {
@@ -237,6 +253,9 @@
         _remotePlayerCamYaw = remoteSpawn->yaw;
         _remotePlayerCamPitch = 0.0f;
     }
+
+    // Store local spawn index for resetPlayerWithPosX to use
+    _localSpawnIndex = localSpawnIndex;
 
     // Combat state
     _muzzleFlashTimer = 0;
@@ -302,9 +321,8 @@
     _spawnProtectionTimer = SPAWN_PROTECTION_TIME;
 
     if (_isMultiplayer) {
-        // In multiplayer, randomly select from available spawn points
-        // but avoid spawning too close to remote player
-        int bestSpawn = 0;
+        // In multiplayer, find spawn point furthest from remote player
+        int bestSpawn = _localSpawnIndex;  // Default to assigned spawn
         float bestDistance = 0.0f;
 
         for (int i = 0; i < NUM_SPAWN_POINTS; i++) {
@@ -322,14 +340,7 @@
             }
         }
 
-        // Add some randomness - pick from top 3 furthest spawns
-        int spawnIndex = bestSpawn;
-        if (arc4random_uniform(3) > 0) {
-            // Sometimes pick a random spawn instead of the furthest
-            spawnIndex = arc4random_uniform(NUM_SPAWN_POINTS);
-        }
-
-        SpawnPoint *spawn = [self getSpawnPoint:spawnIndex];
+        SpawnPoint *spawn = [self getSpawnPoint:bestSpawn];
 
         if (spawn) {
             *posX = spawn->x;

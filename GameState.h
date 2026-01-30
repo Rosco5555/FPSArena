@@ -72,6 +72,9 @@ typedef struct {
 @property (nonatomic, readonly) WeaponType currentWeaponType;
 @property (nonatomic, readonly) BOOL isWeaponReloading;
 
+// Settings
+@property (nonatomic) float mouseSensitivity;  // Adjustable mouse sensitivity
+
 // ============================================
 // MULTIPLAYER STATE
 // ============================================
@@ -116,6 +119,9 @@ typedef struct {
 @property (nonatomic) float respawnY;
 @property (nonatomic) float respawnZ;
 @property (nonatomic) float respawnYaw;
+
+// Spawn point indices for current match
+@property (nonatomic) int localSpawnIndex;
 
 // Spawn points array (read-only access)
 @property (nonatomic, readonly) SpawnPoint *spawnPoints;
