@@ -117,17 +117,21 @@
 }
 
 - (void)lobbyDidStartHosting {
+    NSLog(@"[LOBBY] Starting host...");
     [NetworkManager shared].delegate = self;  // Ensure we get connection callbacks
     [[MultiplayerController shared] hostGame];
+    NSLog(@"[LOBBY] Host started, waiting for players");
 }
 
 - (void)lobbyDidConnectToHost:(NSString *)hostIP {
+    NSLog(@"[LOBBY] Connecting to host: %@", hostIP);
     [[NetworkManager shared] stopLANDiscovery];
     [NetworkManager shared].delegate = self;  // Ensure we get connection callbacks
     [[MultiplayerController shared] joinGameAtHost:hostIP];
 }
 
 - (void)lobbyDidStartGame {
+    NSLog(@"[LOBBY] Starting multiplayer game!");
     [self startGameWithMultiplayer:YES];
     [[MultiplayerController shared] startGame];
 }
@@ -146,21 +150,25 @@
 #pragma mark - NetworkManagerDelegate
 
 - (void)networkManager:(id)manager didDiscoverHost:(DiscoveredHost *)host {
+    NSLog(@"[NETWORK] Discovered host: %@", host.address);
     [_lobbyView addDiscoveredHost:host.address];
 }
 
 - (void)networkManagerDidConnect:(id)manager withPlayerId:(uint32_t)playerId {
+    NSLog(@"[NETWORK] Connected to host! Assigned player ID: %u", playerId);
     [_lobbyView transitionToState:LobbyStateConnected];
     [_lobbyView setPlayerReady:2 ready:YES];
 }
 
 - (void)networkManager:(id)manager playerDidConnect:(RemotePlayer *)player {
+    NSLog(@"[NETWORK] Player connected! Player ID: %u, Name: %@", player.playerId, player.playerName);
     [_lobbyView transitionToState:LobbyStateConnected];
     [_lobbyView setPlayerReady:1 ready:YES];
     [_lobbyView setPlayerReady:2 ready:YES];
 }
 
 - (void)networkManagerDidDisconnect:(id)manager {
+    NSLog(@"[NETWORK] Disconnected from server");
     [_lobbyView transitionToState:LobbyStateMainMenu];
 }
 
@@ -173,9 +181,36 @@
 
 @end
 
+// Debug log file path
+static NSString *kLogFilePath = @"/tmp/fpsgame_debug.log";
+
+void setupDebugLogging(void) {
+    // Clear old log file
+    [@"" writeToFile:kLogFilePath atomically:YES encoding:NSUTF8StringEncoding error:nil];
+
+    // Redirect stderr to log file (NSLog uses stderr)
+    freopen([kLogFilePath UTF8String], "a", stderr);
+
+    // Open Terminal window to tail the log
+    NSString *script = [NSString stringWithFormat:
+        @"tell application \"Terminal\"\n"
+        @"    activate\n"
+        @"    do script \"tail -f %@\"\n"
+        @"end tell", kLogFilePath];
+
+    NSAppleScript *appleScript = [[NSAppleScript alloc] initWithSource:script];
+    [appleScript executeAndReturnError:nil];
+
+    NSLog(@"=== FPS Arena Debug Log ===");
+    NSLog(@"Game starting...");
+}
+
 int main(int argc, const char *argv[]) {
     [NSApplication sharedApplication];
     [NSApp setActivationPolicy:NSApplicationActivationPolicyRegular];
+
+    // Setup debug logging with separate terminal window
+    setupDebugLogging();
 
     NSWindow *window = [[NSWindow alloc]
         initWithContentRect:NSMakeRect(200, 200, 800, 600)
