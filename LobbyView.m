@@ -505,6 +505,9 @@ static const CGFloat kHostListItemHeight = 35.0;
                 case 1: // JOIN GAME
                     _isHost = NO;
                     [self transitionToState:LobbyStateJoining];
+                    if ([_delegate respondsToSelector:@selector(lobbyNeedsDiscovery)]) {
+                        [_delegate lobbyNeedsDiscovery];
+                    }
                     break;
                 case 2: // SINGLE PLAYER
                     if ([_delegate respondsToSelector:@selector(lobbyDidSelectSinglePlayer)]) {
@@ -527,7 +530,9 @@ static const CGFloat kHostListItemHeight = 35.0;
             switch (buttonIndex) {
                 case 0: // REFRESH
                     [self clearDiscoveredHosts];
-                    // Delegate should initiate network scan
+                    if ([_delegate respondsToSelector:@selector(lobbyNeedsDiscovery)]) {
+                        [_delegate lobbyNeedsDiscovery];
+                    }
                     break;
                 case 1: // BACK
                     [self transitionToState:LobbyStateMainMenu];

@@ -7,7 +7,13 @@
 #import <MetalKit/MetalKit.h>
 #import "GameConfig.h"
 
+@protocol InputViewDelegate <NSObject>
+- (void)inputViewDidRequestMenu;
+@end
+
 @interface DraggableMetalView : MTKView
+
+@property (nonatomic, weak) id<InputViewDelegate> inputDelegate;
 
 @property (nonatomic) float camYaw;
 @property (nonatomic) float camPitch;

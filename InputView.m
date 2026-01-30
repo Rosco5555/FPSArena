@@ -65,16 +65,11 @@
     GameState *state = [GameState shared];
 
     if (key == 27) {
-        _escapedLock = !_escapedLock;
-        state.isPaused = _escapedLock;  // Pause game when escape lock is active
-        if (_escapedLock) {
-            _controlsActive = NO;
-            CGAssociateMouseAndMouseCursorPosition(true);
-            [NSCursor unhide];
-        } else {
-            _controlsActive = YES;
-            CGAssociateMouseAndMouseCursorPosition(false);
-            [NSCursor hide];
+        _controlsActive = NO;
+        CGAssociateMouseAndMouseCursorPosition(true);
+        [NSCursor unhide];
+        if ([_inputDelegate respondsToSelector:@selector(inputViewDidRequestMenu)]) {
+            [_inputDelegate inputViewDidRequestMenu];
         }
         return;
     }

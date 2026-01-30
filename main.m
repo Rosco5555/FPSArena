@@ -10,9 +10,10 @@
 #import "GameState.h"
 #import "Enemy.h"
 #import "PickupSystem.h"
+#import "NetworkManager.h"
 
 // Game controller that manages lobby and game transitions
-@interface GameController : NSObject <LobbyDelegate>
+@interface GameController : NSObject <LobbyDelegate, NetworkManagerDelegate, InputViewDelegate>
 @property (nonatomic, strong) NSWindow *window;
 @property (nonatomic, strong) LobbyView *lobbyView;
 @property (nonatomic, strong) DraggableMetalView *metalView;
@@ -81,6 +82,7 @@
 
     _renderer = [[MetalRenderer alloc] initWithDevice:_device view:_metalView];
     _metalView.delegate = _renderer;
+    _metalView.inputDelegate = self;
 
     [_window.contentView addSubview:_metalView];
     [_window makeFirstResponder:_metalView];
@@ -98,6 +100,7 @@
 }
 
 - (void)lobbyDidConnectToHost:(NSString *)hostIP {
+    [[NetworkManager shared] stopLANDiscovery];
     [[MultiplayerController shared] joinGameAtHost:hostIP];
 }
 
@@ -108,7 +111,41 @@
 
 - (void)lobbyDidCancel {
     [[MultiplayerController shared] leaveGame];
+    [[NetworkManager shared] stopLANDiscovery];
     [_lobbyView setState:LobbyStateMainMenu];
+}
+
+- (void)lobbyNeedsDiscovery {
+    [NetworkManager shared].delegate = self;
+    [[NetworkManager shared] startLANDiscovery];
+}
+
+#pragma mark - NetworkManagerDelegate
+
+- (void)networkManager:(id)manager didDiscoverHost:(DiscoveredHost *)host {
+    [_lobbyView addDiscoveredHost:host.address];
+}
+
+- (void)networkManagerDidConnect:(id)manager withPlayerId:(uint32_t)playerId {
+    [_lobbyView transitionToState:LobbyStateConnected];
+    [_lobbyView setPlayerReady:2 ready:YES];
+}
+
+- (void)networkManager:(id)manager playerDidConnect:(RemotePlayer *)player {
+    [_lobbyView transitionToState:LobbyStateConnected];
+    [_lobbyView setPlayerReady:1 ready:YES];
+    [_lobbyView setPlayerReady:2 ready:YES];
+}
+
+- (void)networkManagerDidDisconnect:(id)manager {
+    [_lobbyView transitionToState:LobbyStateMainMenu];
+}
+
+#pragma mark - InputViewDelegate
+
+- (void)inputViewDidRequestMenu {
+    [[MultiplayerController shared] leaveGame];
+    [self showLobby];
 }
 
 @end

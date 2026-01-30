@@ -19,6 +19,7 @@ typedef NS_ENUM(NSInteger, LobbyState) {
 - (void)lobbyDidConnectToHost:(NSString *)hostIP;
 - (void)lobbyDidStartGame;
 - (void)lobbyDidCancel;
+- (void)lobbyNeedsDiscovery;
 @end
 
 @interface LobbyView : NSView
