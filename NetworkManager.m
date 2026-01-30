@@ -1076,13 +1076,16 @@ typedef struct {
 
         case PacketTypeKill: {
             uint32_t victimId = packet->player.playerId;
-            uint32_t killerId = player ? player.playerId : _localPlayerId;
+            // The killer is the LOCAL player (we received notification that we killed someone)
+            // The victim is the one who sent the death notification
+            uint32_t killerId = _localPlayerId;
 
             if ([_delegate respondsToSelector:@selector(networkManager:didReceiveKill:killedBy:)]) {
                 [_delegate networkManager:self didReceiveKill:victimId killedBy:killerId];
             }
             if (_mode == NetworkModeHost) {
-                [self relayReliablePacketToOtherPlayers:packet exceptPlayer:killerId];
+                // Relay to other players, except the victim (who sent it)
+                [self relayReliablePacketToOtherPlayers:packet exceptPlayer:victimId];
             }
             break;
         }
