@@ -24,9 +24,9 @@ typedef struct {
 } CombatHitResult;
 
 // Player hitbox dimensions for PvP
-static const float PLAYER_HITBOX_HEIGHT = 1.7f;   // Standing height
-static const float PLAYER_HITBOX_WIDTH = 0.6f;    // Width/depth
-static const float PLAYER_HITBOX_HALF_WIDTH = 0.3f;
+static const float PLAYER_HITBOX_HEIGHT = 2.2f;   // Standing height (extra for head)
+static const float PLAYER_HITBOX_WIDTH = 1.2f;    // Width/depth (wider for easier hits)
+static const float PLAYER_HITBOX_HALF_WIDTH = 0.6f;
 static const float PLAYER_HITBOX_HALF_HEIGHT = 0.85f;
 
 // PvP damage constants
