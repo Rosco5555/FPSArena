@@ -3,6 +3,7 @@
 #import "NetworkManager.h"
 #import "GameConfig.h"
 #import "Combat.h"
+#import "WeaponSystem.h"
 
 @interface MultiplayerController () <NetworkManagerDelegate>
 @end
@@ -295,6 +296,9 @@
     state.playerArmor = 0;
     state.bloodLevel = 0;
     state.gameOver = NO;
+
+    // Reset weapons and ammo
+    [[WeaponSystem shared] resetWeapons];
 
     // Set respawn teleport position (Renderer will apply this)
     state.needsRespawnTeleport = YES;
