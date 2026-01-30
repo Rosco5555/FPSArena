@@ -1855,6 +1855,403 @@
         [encoder drawPrimitives:MTLPrimitiveTypeTriangle vertexStart:0 vertexCount:24];
     }
 
+    // Draw leaderboard when Tab is held
+    if (_metalView.keyTab) {
+        [encoder setRenderPipelineState:_textPipelineState];
+        [encoder setDepthStencilState:_bgDepthState];
+
+        #define MAX_LB_VERTS 2000
+        Vertex lbVerts[MAX_LB_VERTS];
+        int lbv = 0;
+
+        simd_float3 bgColor = {0.0f, 0.0f, 0.0f};
+        simd_float3 borderColor = {0.8f, 0.7f, 0.2f};
+        simd_float3 headerColor = {1.0f, 0.85f, 0.0f};
+        simd_float3 p1Color = {0.3f, 0.8f, 1.0f};
+        simd_float3 p2Color = {1.0f, 0.4f, 0.4f};
+        simd_float3 white = {1.0f, 1.0f, 1.0f};
+
+        #define LBRECT(x0,y0,x1,y1,col) do { \
+            if (lbv < MAX_LB_VERTS - 6) { \
+                lbVerts[lbv++] = (Vertex){{x0,y0,0},col}; \
+                lbVerts[lbv++] = (Vertex){{x1,y0,0},col}; \
+                lbVerts[lbv++] = (Vertex){{x1,y1,0},col}; \
+                lbVerts[lbv++] = (Vertex){{x0,y0,0},col}; \
+                lbVerts[lbv++] = (Vertex){{x1,y1,0},col}; \
+                lbVerts[lbv++] = (Vertex){{x0,y1,0},col}; \
+            } \
+        } while(0)
+
+        // Background panel
+        float panelX = -0.4f, panelY = -0.35f, panelW = 0.8f, panelH = 0.7f;
+        float border = 0.008f;
+
+        // Outer border
+        LBRECT(panelX - border, panelY - border, panelX + panelW + border, panelY + panelH + border, borderColor);
+        // Inner background (semi-transparent effect via darker color)
+        simd_float3 panelBg = {0.05f, 0.05f, 0.1f};
+        LBRECT(panelX, panelY, panelX + panelW, panelY + panelH, panelBg);
+
+        // Title bar
+        LBRECT(panelX, panelY + panelH - 0.12f, panelX + panelW, panelY + panelH, bgColor);
+        LBRECT(panelX, panelY + panelH - 0.125f, panelX + panelW, panelY + panelH - 0.12f, borderColor);
+
+        // Draw "LEADERBOARD" title
+        float lw = 0.035f, lh = 0.055f, th = 0.008f, sp = 0.042f;
+        float titleY = panelY + panelH - 0.095f;
+        float x = panelX + 0.08f;
+
+        // L
+        LBRECT(x, titleY, x+th, titleY+lh, headerColor); LBRECT(x, titleY, x+lw, titleY+th, headerColor);
+        x += sp;
+        // E
+        LBRECT(x, titleY, x+th, titleY+lh, headerColor); LBRECT(x, titleY+lh-th, x+lw, titleY+lh, headerColor);
+        LBRECT(x, titleY, x+lw, titleY+th, headerColor); LBRECT(x, titleY+lh*0.45f, x+lw*0.7f, titleY+lh*0.45f+th, headerColor);
+        x += sp;
+        // A
+        LBRECT(x, titleY, x+th, titleY+lh, headerColor); LBRECT(x+lw-th, titleY, x+lw, titleY+lh, headerColor);
+        LBRECT(x, titleY+lh-th, x+lw, titleY+lh, headerColor); LBRECT(x, titleY+lh*0.45f, x+lw, titleY+lh*0.45f+th, headerColor);
+        x += sp;
+        // D
+        LBRECT(x, titleY, x+th, titleY+lh, headerColor); LBRECT(x, titleY+lh-th, x+lw*0.7f, titleY+lh, headerColor);
+        LBRECT(x, titleY, x+lw*0.7f, titleY+th, headerColor); LBRECT(x+lw-th, titleY+th, x+lw, titleY+lh-th, headerColor);
+        x += sp;
+        // E
+        LBRECT(x, titleY, x+th, titleY+lh, headerColor); LBRECT(x, titleY+lh-th, x+lw, titleY+lh, headerColor);
+        LBRECT(x, titleY, x+lw, titleY+th, headerColor); LBRECT(x, titleY+lh*0.45f, x+lw*0.7f, titleY+lh*0.45f+th, headerColor);
+        x += sp;
+        // R
+        LBRECT(x, titleY, x+th, titleY+lh, headerColor); LBRECT(x, titleY+lh-th, x+lw, titleY+lh, headerColor);
+        LBRECT(x+lw-th, titleY+lh*0.5f, x+lw, titleY+lh, headerColor); LBRECT(x, titleY+lh*0.45f, x+lw, titleY+lh*0.45f+th, headerColor);
+        LBRECT(x+lw*0.4f, titleY, x+lw, titleY+lh*0.45f, headerColor);
+        x += sp;
+        // B
+        LBRECT(x, titleY, x+th, titleY+lh, headerColor); LBRECT(x, titleY+lh-th, x+lw*0.8f, titleY+lh, headerColor);
+        LBRECT(x, titleY, x+lw*0.8f, titleY+th, headerColor); LBRECT(x+lw-th, titleY+th, x+lw, titleY+lh*0.45f, headerColor);
+        LBRECT(x+lw-th, titleY+lh*0.5f, x+lw, titleY+lh-th, headerColor); LBRECT(x, titleY+lh*0.45f, x+lw*0.8f, titleY+lh*0.45f+th, headerColor);
+        x += sp;
+        // O
+        LBRECT(x, titleY, x+th, titleY+lh, headerColor); LBRECT(x+lw-th, titleY, x+lw, titleY+lh, headerColor);
+        LBRECT(x, titleY+lh-th, x+lw, titleY+lh, headerColor); LBRECT(x, titleY, x+lw, titleY+th, headerColor);
+        x += sp;
+        // A
+        LBRECT(x, titleY, x+th, titleY+lh, headerColor); LBRECT(x+lw-th, titleY, x+lw, titleY+lh, headerColor);
+        LBRECT(x, titleY+lh-th, x+lw, titleY+lh, headerColor); LBRECT(x, titleY+lh*0.45f, x+lw, titleY+lh*0.45f+th, headerColor);
+        x += sp;
+        // R
+        LBRECT(x, titleY, x+th, titleY+lh, headerColor); LBRECT(x, titleY+lh-th, x+lw, titleY+lh, headerColor);
+        LBRECT(x+lw-th, titleY+lh*0.5f, x+lw, titleY+lh, headerColor); LBRECT(x, titleY+lh*0.45f, x+lw, titleY+lh*0.45f+th, headerColor);
+        LBRECT(x+lw*0.4f, titleY, x+lw, titleY+lh*0.45f, headerColor);
+        x += sp;
+        // D
+        LBRECT(x, titleY, x+th, titleY+lh, headerColor); LBRECT(x, titleY+lh-th, x+lw*0.7f, titleY+lh, headerColor);
+        LBRECT(x, titleY, x+lw*0.7f, titleY+th, headerColor); LBRECT(x+lw-th, titleY+th, x+lw, titleY+lh-th, headerColor);
+
+        // Column headers
+        float rowY = panelY + panelH - 0.22f;
+        float nameX = panelX + 0.05f;
+        float killsX = panelX + 0.55f;
+        float slw = 0.022f, slh = 0.035f, sth = 0.005f, ssp = 0.028f;
+
+        // "PLAYER" header
+        x = nameX;
+        // P
+        LBRECT(x, rowY, x+sth, rowY+slh, white); LBRECT(x, rowY+slh-sth, x+slw, rowY+slh, white);
+        LBRECT(x+slw-sth, rowY+slh*0.45f, x+slw, rowY+slh, white); LBRECT(x, rowY+slh*0.45f, x+slw, rowY+slh*0.45f+sth, white);
+        x += ssp;
+        // L
+        LBRECT(x, rowY, x+sth, rowY+slh, white); LBRECT(x, rowY, x+slw, rowY+sth, white);
+        x += ssp;
+        // A
+        LBRECT(x, rowY, x+sth, rowY+slh, white); LBRECT(x+slw-sth, rowY, x+slw, rowY+slh, white);
+        LBRECT(x, rowY+slh-sth, x+slw, rowY+slh, white); LBRECT(x, rowY+slh*0.45f, x+slw, rowY+slh*0.45f+sth, white);
+        x += ssp;
+        // Y
+        LBRECT(x, rowY+slh*0.5f, x+sth, rowY+slh, white); LBRECT(x+slw-sth, rowY+slh*0.5f, x+slw, rowY+slh, white);
+        LBRECT(x+slw*0.5f-sth*0.5f, rowY, x+slw*0.5f+sth*0.5f, rowY+slh*0.55f, white);
+        x += ssp;
+        // E
+        LBRECT(x, rowY, x+sth, rowY+slh, white); LBRECT(x, rowY+slh-sth, x+slw, rowY+slh, white);
+        LBRECT(x, rowY, x+slw, rowY+sth, white); LBRECT(x, rowY+slh*0.45f, x+slw*0.7f, rowY+slh*0.45f+sth, white);
+        x += ssp;
+        // R
+        LBRECT(x, rowY, x+sth, rowY+slh, white); LBRECT(x, rowY+slh-sth, x+slw, rowY+slh, white);
+        LBRECT(x+slw-sth, rowY+slh*0.5f, x+slw, rowY+slh, white); LBRECT(x, rowY+slh*0.45f, x+slw, rowY+slh*0.45f+sth, white);
+
+        // "KILLS" header
+        x = killsX;
+        // K
+        LBRECT(x, rowY, x+sth, rowY+slh, white);
+        LBRECT(x, rowY+slh*0.45f, x+slw*0.5f, rowY+slh*0.45f+sth, white);
+        LBRECT(x+slw*0.4f, rowY+slh*0.5f, x+slw, rowY+slh, white);
+        LBRECT(x+slw*0.4f, rowY, x+slw, rowY+slh*0.5f, white);
+        x += ssp;
+        // I
+        LBRECT(x+slw*0.5f-sth*0.5f, rowY, x+slw*0.5f+sth*0.5f, rowY+slh, white);
+        x += ssp;
+        // L
+        LBRECT(x, rowY, x+sth, rowY+slh, white); LBRECT(x, rowY, x+slw, rowY+sth, white);
+        x += ssp;
+        // L
+        LBRECT(x, rowY, x+sth, rowY+slh, white); LBRECT(x, rowY, x+slw, rowY+sth, white);
+        x += ssp;
+        // S
+        LBRECT(x, rowY+slh-sth, x+slw, rowY+slh, white); LBRECT(x, rowY+slh*0.5f, x+sth, rowY+slh, white);
+        LBRECT(x, rowY+slh*0.45f, x+slw, rowY+slh*0.45f+sth, white);
+        LBRECT(x+slw-sth, rowY, x+slw, rowY+slh*0.5f, white); LBRECT(x, rowY, x+slw, rowY+sth, white);
+
+        // Separator line
+        LBRECT(panelX + 0.02f, rowY - 0.02f, panelX + panelW - 0.02f, rowY - 0.015f, borderColor);
+
+        // Player rows
+        float plw = 0.028f, plh = 0.045f, pth = 0.006f, psp = 0.035f;
+
+        // Get scores
+        int p1Kills, p2Kills;
+        simd_float3 p1Col, p2Col;
+        p1Kills = state.localPlayerKills;
+        p2Kills = state.remotePlayerKills;  // In single player, this tracks bot kills on player
+        p1Col = p1Color;
+        p2Col = p2Color;
+
+        // Sort by kills (higher first)
+        int rank1Kills = p1Kills >= p2Kills ? p1Kills : p2Kills;
+        int rank2Kills = p1Kills >= p2Kills ? p2Kills : p1Kills;
+        simd_float3 rank1Col = p1Kills >= p2Kills ? p1Col : p2Col;
+        simd_float3 rank2Col = p1Kills >= p2Kills ? p2Col : p1Col;
+        BOOL rank1IsPlayer = p1Kills >= p2Kills;
+
+        // Row 1 (1st place)
+        rowY -= 0.08f;
+        x = nameX;
+        // "1."
+        LBRECT(x+plw*0.5f-pth*0.5f, rowY, x+plw*0.5f+pth*0.5f, rowY+plh, rank1Col);
+        x += psp * 0.6f;
+        LBRECT(x, rowY+plh*0.1f, x+pth*1.5f, rowY+plh*0.25f, rank1Col);
+        x += psp * 0.5f;
+        // Player name - "YOU" or "ENEMY"/"BOT"
+        if (rank1IsPlayer) {
+            // Y
+            LBRECT(x, rowY+plh*0.5f, x+pth, rowY+plh, rank1Col); LBRECT(x+plw-pth, rowY+plh*0.5f, x+plw, rowY+plh, rank1Col);
+            LBRECT(x+plw*0.5f-pth*0.5f, rowY, x+plw*0.5f+pth*0.5f, rowY+plh*0.55f, rank1Col);
+            x += psp;
+            // O
+            LBRECT(x, rowY, x+pth, rowY+plh, rank1Col); LBRECT(x+plw-pth, rowY, x+plw, rowY+plh, rank1Col);
+            LBRECT(x, rowY+plh-pth, x+plw, rowY+plh, rank1Col); LBRECT(x, rowY, x+plw, rowY+pth, rank1Col);
+            x += psp;
+            // U
+            LBRECT(x, rowY, x+pth, rowY+plh, rank1Col); LBRECT(x+plw-pth, rowY, x+plw, rowY+plh, rank1Col);
+            LBRECT(x, rowY, x+plw, rowY+pth, rank1Col);
+        } else {
+            // B
+            LBRECT(x, rowY, x+pth, rowY+plh, rank1Col); LBRECT(x, rowY+plh-pth, x+plw*0.8f, rowY+plh, rank1Col);
+            LBRECT(x, rowY, x+plw*0.8f, rowY+pth, rank1Col); LBRECT(x+plw-pth, rowY+pth, x+plw, rowY+plh*0.45f, rank1Col);
+            LBRECT(x+plw-pth, rowY+plh*0.5f, x+plw, rowY+plh-pth, rank1Col); LBRECT(x, rowY+plh*0.45f, x+plw*0.8f, rowY+plh*0.45f+pth, rank1Col);
+            x += psp;
+            // O
+            LBRECT(x, rowY, x+pth, rowY+plh, rank1Col); LBRECT(x+plw-pth, rowY, x+plw, rowY+plh, rank1Col);
+            LBRECT(x, rowY+plh-pth, x+plw, rowY+plh, rank1Col); LBRECT(x, rowY, x+plw, rowY+pth, rank1Col);
+            x += psp;
+            // T
+            LBRECT(x, rowY+plh-pth, x+plw, rowY+plh, rank1Col);
+            LBRECT(x+plw*0.5f-pth*0.5f, rowY, x+plw*0.5f+pth*0.5f, rowY+plh, rank1Col);
+        }
+        // Kill count for rank 1
+        x = killsX + 0.03f;
+        if (rank1Kills >= 10) {
+            int tens = rank1Kills / 10;
+            // Draw tens digit
+            LBRECT(x+plw*0.5f-pth*0.5f, rowY, x+plw*0.5f+pth*0.5f, rowY+plh, rank1Col);
+            x += psp * 0.7f;
+        }
+        int ones = rank1Kills % 10;
+        switch(ones) {
+            case 0:
+                LBRECT(x, rowY, x+pth, rowY+plh, rank1Col); LBRECT(x+plw-pth, rowY, x+plw, rowY+plh, rank1Col);
+                LBRECT(x, rowY+plh-pth, x+plw, rowY+plh, rank1Col); LBRECT(x, rowY, x+plw, rowY+pth, rank1Col);
+                break;
+            case 1:
+                LBRECT(x+plw*0.5f-pth*0.5f, rowY, x+plw*0.5f+pth*0.5f, rowY+plh, rank1Col);
+                break;
+            case 2:
+                LBRECT(x, rowY+plh-pth, x+plw, rowY+plh, rank1Col); LBRECT(x+plw-pth, rowY+plh*0.5f, x+plw, rowY+plh, rank1Col);
+                LBRECT(x, rowY+plh*0.45f, x+plw, rowY+plh*0.45f+pth, rank1Col);
+                LBRECT(x, rowY, x+pth, rowY+plh*0.5f, rank1Col); LBRECT(x, rowY, x+plw, rowY+pth, rank1Col);
+                break;
+            case 3:
+                LBRECT(x, rowY+plh-pth, x+plw, rowY+plh, rank1Col); LBRECT(x+plw-pth, rowY, x+plw, rowY+plh, rank1Col);
+                LBRECT(x, rowY+plh*0.45f, x+plw, rowY+plh*0.45f+pth, rank1Col); LBRECT(x, rowY, x+plw, rowY+pth, rank1Col);
+                break;
+            case 4:
+                LBRECT(x, rowY+plh*0.45f, x+pth, rowY+plh, rank1Col); LBRECT(x+plw-pth, rowY, x+plw, rowY+plh, rank1Col);
+                LBRECT(x, rowY+plh*0.45f, x+plw, rowY+plh*0.45f+pth, rank1Col);
+                break;
+            case 5:
+                LBRECT(x, rowY+plh-pth, x+plw, rowY+plh, rank1Col); LBRECT(x, rowY+plh*0.5f, x+pth, rowY+plh, rank1Col);
+                LBRECT(x, rowY+plh*0.45f, x+plw, rowY+plh*0.45f+pth, rank1Col);
+                LBRECT(x+plw-pth, rowY, x+plw, rowY+plh*0.5f, rank1Col); LBRECT(x, rowY, x+plw, rowY+pth, rank1Col);
+                break;
+            case 6:
+                LBRECT(x, rowY, x+pth, rowY+plh, rank1Col); LBRECT(x, rowY+plh-pth, x+plw, rowY+plh, rank1Col);
+                LBRECT(x, rowY+plh*0.45f, x+plw, rowY+plh*0.45f+pth, rank1Col);
+                LBRECT(x+plw-pth, rowY, x+plw, rowY+plh*0.5f, rank1Col); LBRECT(x, rowY, x+plw, rowY+pth, rank1Col);
+                break;
+            case 7:
+                LBRECT(x, rowY+plh-pth, x+plw, rowY+plh, rank1Col); LBRECT(x+plw-pth, rowY, x+plw, rowY+plh, rank1Col);
+                break;
+            case 8:
+                LBRECT(x, rowY, x+pth, rowY+plh, rank1Col); LBRECT(x+plw-pth, rowY, x+plw, rowY+plh, rank1Col);
+                LBRECT(x, rowY+plh-pth, x+plw, rowY+plh, rank1Col); LBRECT(x, rowY, x+plw, rowY+pth, rank1Col);
+                LBRECT(x, rowY+plh*0.45f, x+plw, rowY+plh*0.45f+pth, rank1Col);
+                break;
+            case 9:
+                LBRECT(x, rowY+plh*0.45f, x+pth, rowY+plh, rank1Col); LBRECT(x+plw-pth, rowY, x+plw, rowY+plh, rank1Col);
+                LBRECT(x, rowY+plh-pth, x+plw, rowY+plh, rank1Col); LBRECT(x, rowY+plh*0.45f, x+plw, rowY+plh*0.45f+pth, rank1Col);
+                LBRECT(x, rowY, x+plw, rowY+pth, rank1Col);
+                break;
+        }
+
+        // Row 2 (2nd place)
+        rowY -= 0.08f;
+        x = nameX;
+        // "2."
+        LBRECT(x, rowY+plh-pth, x+plw, rowY+plh, rank2Col); LBRECT(x+plw-pth, rowY+plh*0.5f, x+plw, rowY+plh, rank2Col);
+        LBRECT(x, rowY+plh*0.45f, x+plw, rowY+plh*0.45f+pth, rank2Col);
+        LBRECT(x, rowY, x+pth, rowY+plh*0.5f, rank2Col); LBRECT(x, rowY, x+plw, rowY+pth, rank2Col);
+        x += psp * 0.6f;
+        LBRECT(x, rowY+plh*0.1f, x+pth*1.5f, rowY+plh*0.25f, rank2Col);
+        x += psp * 0.5f;
+        // Player name
+        if (!rank1IsPlayer) {
+            // Y
+            LBRECT(x, rowY+plh*0.5f, x+pth, rowY+plh, rank2Col); LBRECT(x+plw-pth, rowY+plh*0.5f, x+plw, rowY+plh, rank2Col);
+            LBRECT(x+plw*0.5f-pth*0.5f, rowY, x+plw*0.5f+pth*0.5f, rowY+plh*0.55f, rank2Col);
+            x += psp;
+            // O
+            LBRECT(x, rowY, x+pth, rowY+plh, rank2Col); LBRECT(x+plw-pth, rowY, x+plw, rowY+plh, rank2Col);
+            LBRECT(x, rowY+plh-pth, x+plw, rowY+plh, rank2Col); LBRECT(x, rowY, x+plw, rowY+pth, rank2Col);
+            x += psp;
+            // U
+            LBRECT(x, rowY, x+pth, rowY+plh, rank2Col); LBRECT(x+plw-pth, rowY, x+plw, rowY+plh, rank2Col);
+            LBRECT(x, rowY, x+plw, rowY+pth, rank2Col);
+        } else {
+            // B
+            LBRECT(x, rowY, x+pth, rowY+plh, rank2Col); LBRECT(x, rowY+plh-pth, x+plw*0.8f, rowY+plh, rank2Col);
+            LBRECT(x, rowY, x+plw*0.8f, rowY+pth, rank2Col); LBRECT(x+plw-pth, rowY+pth, x+plw, rowY+plh*0.45f, rank2Col);
+            LBRECT(x+plw-pth, rowY+plh*0.5f, x+plw, rowY+plh-pth, rank2Col); LBRECT(x, rowY+plh*0.45f, x+plw*0.8f, rowY+plh*0.45f+pth, rank2Col);
+            x += psp;
+            // O
+            LBRECT(x, rowY, x+pth, rowY+plh, rank2Col); LBRECT(x+plw-pth, rowY, x+plw, rowY+plh, rank2Col);
+            LBRECT(x, rowY+plh-pth, x+plw, rowY+plh, rank2Col); LBRECT(x, rowY, x+plw, rowY+pth, rank2Col);
+            x += psp;
+            // T
+            LBRECT(x, rowY+plh-pth, x+plw, rowY+plh, rank2Col);
+            LBRECT(x+plw*0.5f-pth*0.5f, rowY, x+plw*0.5f+pth*0.5f, rowY+plh, rank2Col);
+        }
+        // Kill count for rank 2
+        x = killsX + 0.03f;
+        if (rank2Kills >= 10) {
+            int tens = rank2Kills / 10;
+            LBRECT(x+plw*0.5f-pth*0.5f, rowY, x+plw*0.5f+pth*0.5f, rowY+plh, rank2Col);
+            x += psp * 0.7f;
+        }
+        ones = rank2Kills % 10;
+        switch(ones) {
+            case 0:
+                LBRECT(x, rowY, x+pth, rowY+plh, rank2Col); LBRECT(x+plw-pth, rowY, x+plw, rowY+plh, rank2Col);
+                LBRECT(x, rowY+plh-pth, x+plw, rowY+plh, rank2Col); LBRECT(x, rowY, x+plw, rowY+pth, rank2Col);
+                break;
+            case 1:
+                LBRECT(x+plw*0.5f-pth*0.5f, rowY, x+plw*0.5f+pth*0.5f, rowY+plh, rank2Col);
+                break;
+            case 2:
+                LBRECT(x, rowY+plh-pth, x+plw, rowY+plh, rank2Col); LBRECT(x+plw-pth, rowY+plh*0.5f, x+plw, rowY+plh, rank2Col);
+                LBRECT(x, rowY+plh*0.45f, x+plw, rowY+plh*0.45f+pth, rank2Col);
+                LBRECT(x, rowY, x+pth, rowY+plh*0.5f, rank2Col); LBRECT(x, rowY, x+plw, rowY+pth, rank2Col);
+                break;
+            case 3:
+                LBRECT(x, rowY+plh-pth, x+plw, rowY+plh, rank2Col); LBRECT(x+plw-pth, rowY, x+plw, rowY+plh, rank2Col);
+                LBRECT(x, rowY+plh*0.45f, x+plw, rowY+plh*0.45f+pth, rank2Col); LBRECT(x, rowY, x+plw, rowY+pth, rank2Col);
+                break;
+            case 4:
+                LBRECT(x, rowY+plh*0.45f, x+pth, rowY+plh, rank2Col); LBRECT(x+plw-pth, rowY, x+plw, rowY+plh, rank2Col);
+                LBRECT(x, rowY+plh*0.45f, x+plw, rowY+plh*0.45f+pth, rank2Col);
+                break;
+            case 5:
+                LBRECT(x, rowY+plh-pth, x+plw, rowY+plh, rank2Col); LBRECT(x, rowY+plh*0.5f, x+pth, rowY+plh, rank2Col);
+                LBRECT(x, rowY+plh*0.45f, x+plw, rowY+plh*0.45f+pth, rank2Col);
+                LBRECT(x+plw-pth, rowY, x+plw, rowY+plh*0.5f, rank2Col); LBRECT(x, rowY, x+plw, rowY+pth, rank2Col);
+                break;
+            case 6:
+                LBRECT(x, rowY, x+pth, rowY+plh, rank2Col); LBRECT(x, rowY+plh-pth, x+plw, rowY+plh, rank2Col);
+                LBRECT(x, rowY+plh*0.45f, x+plw, rowY+plh*0.45f+pth, rank2Col);
+                LBRECT(x+plw-pth, rowY, x+plw, rowY+plh*0.5f, rank2Col); LBRECT(x, rowY, x+plw, rowY+pth, rank2Col);
+                break;
+            case 7:
+                LBRECT(x, rowY+plh-pth, x+plw, rowY+plh, rank2Col); LBRECT(x+plw-pth, rowY, x+plw, rowY+plh, rank2Col);
+                break;
+            case 8:
+                LBRECT(x, rowY, x+pth, rowY+plh, rank2Col); LBRECT(x+plw-pth, rowY, x+plw, rowY+plh, rank2Col);
+                LBRECT(x, rowY+plh-pth, x+plw, rowY+plh, rank2Col); LBRECT(x, rowY, x+plw, rowY+pth, rank2Col);
+                LBRECT(x, rowY+plh*0.45f, x+plw, rowY+plh*0.45f+pth, rank2Col);
+                break;
+            case 9:
+                LBRECT(x, rowY+plh*0.45f, x+pth, rowY+plh, rank2Col); LBRECT(x+plw-pth, rowY, x+plw, rowY+plh, rank2Col);
+                LBRECT(x, rowY+plh-pth, x+plw, rowY+plh, rank2Col); LBRECT(x, rowY+plh*0.45f, x+plw, rowY+plh*0.45f+pth, rank2Col);
+                LBRECT(x, rowY, x+plw, rowY+pth, rank2Col);
+                break;
+        }
+
+        // Footer hint
+        float footY = panelY + 0.03f;
+        float flw = 0.018f, flh = 0.028f, fth = 0.004f, fsp = 0.022f;
+        simd_float3 gray = {0.5f, 0.5f, 0.5f};
+        x = panelX + 0.25f;
+        // "FIRST TO 10"
+        // F
+        LBRECT(x, footY, x+fth, footY+flh, gray); LBRECT(x, footY+flh-fth, x+flw, footY+flh, gray);
+        LBRECT(x, footY+flh*0.45f, x+flw*0.7f, footY+flh*0.45f+fth, gray);
+        x += fsp;
+        // I
+        LBRECT(x+flw*0.5f-fth*0.5f, footY, x+flw*0.5f+fth*0.5f, footY+flh, gray);
+        x += fsp;
+        // R
+        LBRECT(x, footY, x+fth, footY+flh, gray); LBRECT(x, footY+flh-fth, x+flw, footY+flh, gray);
+        LBRECT(x+flw-fth, footY+flh*0.5f, x+flw, footY+flh, gray); LBRECT(x, footY+flh*0.45f, x+flw, footY+flh*0.45f+fth, gray);
+        x += fsp;
+        // S
+        LBRECT(x, footY+flh-fth, x+flw, footY+flh, gray); LBRECT(x, footY+flh*0.5f, x+fth, footY+flh, gray);
+        LBRECT(x, footY+flh*0.45f, x+flw, footY+flh*0.45f+fth, gray);
+        LBRECT(x+flw-fth, footY, x+flw, footY+flh*0.5f, gray); LBRECT(x, footY, x+flw, footY+fth, gray);
+        x += fsp;
+        // T
+        LBRECT(x, footY+flh-fth, x+flw, footY+flh, gray);
+        LBRECT(x+flw*0.5f-fth*0.5f, footY, x+flw*0.5f+fth*0.5f, footY+flh, gray);
+        x += fsp * 1.3f;
+        // T
+        LBRECT(x, footY+flh-fth, x+flw, footY+flh, gray);
+        LBRECT(x+flw*0.5f-fth*0.5f, footY, x+flw*0.5f+fth*0.5f, footY+flh, gray);
+        x += fsp;
+        // O
+        LBRECT(x, footY, x+fth, footY+flh, gray); LBRECT(x+flw-fth, footY, x+flw, footY+flh, gray);
+        LBRECT(x, footY+flh-fth, x+flw, footY+flh, gray); LBRECT(x, footY, x+flw, footY+fth, gray);
+        x += fsp * 1.3f;
+        // 1
+        LBRECT(x+flw*0.5f-fth*0.5f, footY, x+flw*0.5f+fth*0.5f, footY+flh, gray);
+        x += fsp;
+        // 0
+        LBRECT(x, footY, x+fth, footY+flh, gray); LBRECT(x+flw-fth, footY, x+flw, footY+flh, gray);
+        LBRECT(x, footY+flh-fth, x+flw, footY+flh, gray); LBRECT(x, footY, x+flw, footY+fth, gray);
+
+        #undef LBRECT
+        #undef MAX_LB_VERTS
+
+        id<MTLBuffer> lbBuffer = [_device newBufferWithBytes:lbVerts length:sizeof(Vertex)*lbv options:MTLResourceStorageModeShared];
+        [encoder setVertexBuffer:lbBuffer offset:0 atIndex:0];
+        [encoder setVertexBytes:&IDENTITY_MATRIX length:sizeof(IDENTITY_MATRIX) atIndex:1];
+        [encoder drawPrimitives:MTLPrimitiveTypeTriangle vertexStart:0 vertexCount:lbv];
+    }
+
     [encoder endEncoding];
     [commandBuffer presentDrawable:view.currentDrawable];
     [commandBuffer commit];

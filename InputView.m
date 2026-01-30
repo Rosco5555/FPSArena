@@ -79,6 +79,7 @@
         case 'a': _keyA = YES; break;
         case 's': _keyS = YES; break;
         case 'd': _keyD = YES; break;
+        case '\t': _keyTab = YES; break;
         case 'r':
             if (state.gameOver && !state.gameWon) {
                 // Game over - R key respawns/restarts
@@ -146,6 +147,7 @@
         case 'a': _keyA = NO; break;
         case 's': _keyS = NO; break;
         case 'd': _keyD = NO; break;
+        case '\t': _keyTab = NO; break;
     }
 }
 

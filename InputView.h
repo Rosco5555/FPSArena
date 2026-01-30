@@ -30,6 +30,7 @@
 @property (nonatomic) BOOL keyD;
 @property (nonatomic) BOOL wantsClick;
 @property (nonatomic) BOOL mouseHeld;
+@property (nonatomic) BOOL keyTab;
 @property (nonatomic) int fireTimer;
 @property (nonatomic) float velocityX;
 @property (nonatomic) float velocityY;
