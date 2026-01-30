@@ -224,22 +224,47 @@
 
     // Apply movement (skip when paused)
     if (!state.gameOver && !state.isPaused) {
+        // Initialize currentHeight if needed (first frame)
+        if (_metalView.currentHeight == 0) {
+            _metalView.currentHeight = PLAYER_HEIGHT;
+        }
+
+        // Smooth crouch transition
+        float targetHeight = _metalView.keyCrouch ? CROUCH_HEIGHT : PLAYER_HEIGHT;
+        float heightDiff = targetHeight - _metalView.currentHeight;
+        if (fabsf(heightDiff) > 0.01f) {
+            // Adjust position to keep feet on ground during crouch
+            float oldHeight = _metalView.currentHeight;
+            _metalView.currentHeight += heightDiff * CROUCH_TRANSITION_SPEED * 2.0f;
+            // Adjust camera position to reflect height change (keep feet planted)
+            if (_metalView.onGround) {
+                _metalView.posY += (_metalView.currentHeight - oldHeight);
+            }
+        } else {
+            _metalView.currentHeight = targetHeight;
+        }
+
+        // Calculate speed multiplier based on crouch state
+        float speedMultiplier = _metalView.keyCrouch ? CROUCH_SPEED_MULTIPLIER : 1.0f;
+        float accel = MOVE_ACCEL * speedMultiplier;
+
         if (_metalView.controlsActive) {
             float fwdX = sinf(_metalView.camYaw);
             float fwdZ = -cosf(_metalView.camYaw);
             float rgtX = cosf(_metalView.camYaw);
             float rgtZ = sinf(_metalView.camYaw);
 
-            if (_metalView.keyW) { _metalView.velocityX += fwdX * MOVE_ACCEL; _metalView.velocityZ += fwdZ * MOVE_ACCEL; }
-            if (_metalView.keyS) { _metalView.velocityX -= fwdX * MOVE_ACCEL; _metalView.velocityZ -= fwdZ * MOVE_ACCEL; }
-            if (_metalView.keyA) { _metalView.velocityX -= rgtX * MOVE_ACCEL; _metalView.velocityZ -= rgtZ * MOVE_ACCEL; }
-            if (_metalView.keyD) { _metalView.velocityX += rgtX * MOVE_ACCEL; _metalView.velocityZ += rgtZ * MOVE_ACCEL; }
+            if (_metalView.keyW) { _metalView.velocityX += fwdX * accel; _metalView.velocityZ += fwdZ * accel; }
+            if (_metalView.keyS) { _metalView.velocityX -= fwdX * accel; _metalView.velocityZ -= fwdZ * accel; }
+            if (_metalView.keyA) { _metalView.velocityX -= rgtX * accel; _metalView.velocityZ -= rgtZ * accel; }
+            if (_metalView.keyD) { _metalView.velocityX += rgtX * accel; _metalView.velocityZ += rgtZ * accel; }
         }
 
+        float maxSpeed = MAX_SPEED * speedMultiplier;
         float hSpeed = sqrtf(_metalView.velocityX * _metalView.velocityX + _metalView.velocityZ * _metalView.velocityZ);
-        if (hSpeed > MAX_SPEED) {
-            _metalView.velocityX *= MAX_SPEED / hSpeed;
-            _metalView.velocityZ *= MAX_SPEED / hSpeed;
+        if (hSpeed > maxSpeed) {
+            _metalView.velocityX *= maxSpeed / hSpeed;
+            _metalView.velocityZ *= maxSpeed / hSpeed;
         }
 
         _metalView.velocityX *= MOVE_FRICTION;
@@ -275,7 +300,8 @@
 
     // Base ground level - use basement level if in bunker, otherwise standard floor
     float baseGroundY = inBunkerArea ? BASEMENT_LEVEL : FLOOR_Y;
-    float groundEyeY = baseGroundY + PLAYER_HEIGHT;
+    float playerHeight = _metalView.currentHeight > 0 ? _metalView.currentHeight : PLAYER_HEIGHT;
+    float groundEyeY = baseGroundY + playerHeight;
 
     // Only apply gravity when not paused
     if (!state.isPaused) {
@@ -292,7 +318,8 @@
     {
         float px = _metalView.posX;
         float pz = _metalView.posZ;  // Use raw coordinates for collision
-        float feetY = _metalView.posY - PLAYER_HEIGHT;
+        float currentPlayerHeight = _metalView.currentHeight > 0 ? _metalView.currentHeight : PLAYER_HEIGHT;
+        float feetY = _metalView.posY - currentPlayerHeight;
 
         // Command building roof collision (block from going through)
         float hw = CMD_BUILDING_WIDTH / 2.0f;
@@ -325,7 +352,7 @@
                 pz > tz - platHalfSize && pz < tz + platHalfSize) {
                 // Player is above platform - land on it
                 if (feetY >= platTop - 0.5f && _metalView.velocityY <= 0) {
-                    _metalView.posY = platTop + PLAYER_HEIGHT;
+                    _metalView.posY = platTop + currentPlayerHeight;
                     _metalView.velocityY = 0;
                     _metalView.onGround = YES;
                 }
@@ -337,7 +364,7 @@
         if (px > -TOWER_OFFSET + TOWER_SIZE/2 && px < TOWER_OFFSET - TOWER_SIZE/2 &&
             pz > TOWER_OFFSET - CATWALK_WIDTH/2 && pz < TOWER_OFFSET + CATWALK_WIDTH/2) {
             if (feetY >= PLATFORM_LEVEL - 0.5f && _metalView.velocityY <= 0) {
-                _metalView.posY = PLATFORM_LEVEL + PLAYER_HEIGHT;
+                _metalView.posY = PLATFORM_LEVEL + currentPlayerHeight;
                 _metalView.velocityY = 0;
                 _metalView.onGround = YES;
             }
@@ -346,7 +373,7 @@
         if (px > -TOWER_OFFSET + TOWER_SIZE/2 && px < TOWER_OFFSET - TOWER_SIZE/2 &&
             pz > -TOWER_OFFSET - CATWALK_WIDTH/2 && pz < -TOWER_OFFSET + CATWALK_WIDTH/2) {
             if (feetY >= PLATFORM_LEVEL - 0.5f && _metalView.velocityY <= 0) {
-                _metalView.posY = PLATFORM_LEVEL + PLAYER_HEIGHT;
+                _metalView.posY = PLATFORM_LEVEL + currentPlayerHeight;
                 _metalView.velocityY = 0;
                 _metalView.onGround = YES;
             }
@@ -355,7 +382,7 @@
         if (px > TOWER_OFFSET - CATWALK_WIDTH/2 && px < TOWER_OFFSET + CATWALK_WIDTH/2 &&
             pz > -TOWER_OFFSET + TOWER_SIZE/2 && pz < TOWER_OFFSET - TOWER_SIZE/2) {
             if (feetY >= PLATFORM_LEVEL - 0.5f && _metalView.velocityY <= 0) {
-                _metalView.posY = PLATFORM_LEVEL + PLAYER_HEIGHT;
+                _metalView.posY = PLATFORM_LEVEL + currentPlayerHeight;
                 _metalView.velocityY = 0;
                 _metalView.onGround = YES;
             }
@@ -364,7 +391,7 @@
         if (px > -TOWER_OFFSET - CATWALK_WIDTH/2 && px < -TOWER_OFFSET + CATWALK_WIDTH/2 &&
             pz > -TOWER_OFFSET + TOWER_SIZE/2 && pz < TOWER_OFFSET - TOWER_SIZE/2) {
             if (feetY >= PLATFORM_LEVEL - 0.5f && _metalView.velocityY <= 0) {
-                _metalView.posY = PLATFORM_LEVEL + PLAYER_HEIGHT;
+                _metalView.posY = PLATFORM_LEVEL + currentPlayerHeight;
                 _metalView.velocityY = 0;
                 _metalView.onGround = YES;
             }
@@ -396,7 +423,7 @@
                 pz > cz - czl && pz < cz + czl) {
                 // Allow landing from above - check if feet are at or above container top
                 if (feetY >= cy - 0.5f && _metalView.velocityY <= 0) {
-                    _metalView.posY = cy + PLAYER_HEIGHT;
+                    _metalView.posY = cy + currentPlayerHeight;
                     _metalView.velocityY = 0;
                     _metalView.onGround = YES;
                 }
@@ -419,7 +446,7 @@
             if (!inStairHole) {
                 // Allow landing from above on second floor
                 if (feetY >= floorY - 0.5f && feetY <= floorY + 1.0f && _metalView.velocityY <= 0) {
-                    _metalView.posY = floorY + PLAYER_HEIGHT;
+                    _metalView.posY = floorY + currentPlayerHeight;
                     _metalView.velocityY = 0;
                     _metalView.onGround = YES;
                 }
@@ -442,7 +469,7 @@
             if (px > cmdStairX && px < cmdStairX + cmdStairW &&
                 pz > stepZEnd && pz < stepZStart) {
                 if (feetY >= stepTop - 0.3f && feetY <= stepTop + 0.3f && _metalView.velocityY <= 0) {
-                    _metalView.posY = stepTop + PLAYER_HEIGHT;
+                    _metalView.posY = stepTop + currentPlayerHeight;
                     _metalView.velocityY = 0;
                     _metalView.onGround = YES;
                 }
@@ -489,7 +516,7 @@
                 float rampY = FLOOR_Y + progress * (platY - FLOOR_Y);
 
                 if (feetY >= rampY - 0.3f && feetY <= rampY + 0.5f && _metalView.velocityY <= 0) {
-                    _metalView.posY = rampY + PLAYER_HEIGHT;
+                    _metalView.posY = rampY + currentPlayerHeight;
                     _metalView.velocityY = 0;
                     _metalView.onGround = YES;
                 }
@@ -507,7 +534,7 @@
         if (px > bx - bhw + bwt && px < bx + bhw - bwt &&
             pz > bz - bhd + bwt && pz < bz + bhd - bwt) {
             if (feetY >= bunkerFloorY - 0.1f && feetY <= bunkerFloorY + 0.3f && _metalView.velocityY <= 0) {
-                _metalView.posY = bunkerFloorY + PLAYER_HEIGHT;
+                _metalView.posY = bunkerFloorY + currentPlayerHeight;
                 _metalView.velocityY = 0;
                 _metalView.onGround = YES;
             }
@@ -527,7 +554,7 @@
             if (px > bx - bsw && px < bx + bsw &&
                 pz > stepZEnd && pz < stepZStart) {
                 if (feetY >= stepTop - bunkerStepH - 0.1f && feetY <= stepTop + 0.3f && _metalView.velocityY <= 0) {
-                    _metalView.posY = stepTop + PLAYER_HEIGHT;
+                    _metalView.posY = stepTop + currentPlayerHeight;
                     _metalView.velocityY = 0;
                     _metalView.onGround = YES;
                 }
@@ -540,7 +567,8 @@
         float px = _metalView.posX;
         float py = _metalView.posY;
         float pz = _metalView.posZ;  // Use raw coordinates for collision
-        float feetY = py - PLAYER_HEIGHT;
+        float wallCollisionHeight = _metalView.currentHeight > 0 ? _metalView.currentHeight : PLAYER_HEIGHT;
+        float feetY = py - wallCollisionHeight;
         float headY = py + 0.1f;
 
         float hw = CMD_BUILDING_WIDTH / 2.0f;

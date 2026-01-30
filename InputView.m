@@ -151,6 +151,11 @@
     }
 }
 
+- (void)flagsChanged:(NSEvent *)event {
+    // Control key for crouching
+    _keyCrouch = (event.modifierFlags & NSEventModifierFlagControl) != 0;
+}
+
 - (void)sendNetworkState {
     GameState *state = [GameState shared];
     if (!state.isMultiplayer) return;

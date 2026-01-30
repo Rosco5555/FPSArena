@@ -28,6 +28,8 @@
 @property (nonatomic) BOOL keyA;
 @property (nonatomic) BOOL keyS;
 @property (nonatomic) BOOL keyD;
+@property (nonatomic) BOOL keyCrouch;
+@property (nonatomic) float currentHeight;  // Interpolated height for smooth crouch transition
 @property (nonatomic) BOOL wantsClick;
 @property (nonatomic) BOOL mouseHeld;
 @property (nonatomic) BOOL keyTab;
