@@ -110,6 +110,13 @@ typedef struct {
 @property (nonatomic) int localRespawnTimer;
 @property (nonatomic) int remoteRespawnTimer;
 
+// Respawn teleport (set by MultiplayerController, read by Renderer)
+@property (nonatomic) BOOL needsRespawnTeleport;
+@property (nonatomic) float respawnX;
+@property (nonatomic) float respawnY;
+@property (nonatomic) float respawnZ;
+@property (nonatomic) float respawnYaw;
+
 // Spawn points array (read-only access)
 @property (nonatomic, readonly) SpawnPoint *spawnPoints;
 

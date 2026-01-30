@@ -211,7 +211,8 @@
         if (gameState.playerHealth <= 0) {
             gameState.playerHealth = 0;
             gameState.gameOver = YES;
-            NSLog(@"[NETWORK] Local player killed!");
+            gameState.localRespawnTimer = RESPAWN_DELAY;
+            NSLog(@"[NETWORK] Local player killed! Respawning in %d frames", RESPAWN_DELAY);
         }
     }
 }

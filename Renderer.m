@@ -222,6 +222,21 @@
     // Update multiplayer network state
     [_metalView sendNetworkState];
 
+    // Handle respawn teleport
+    if (state.needsRespawnTeleport) {
+        state.needsRespawnTeleport = NO;
+        _metalView.posX = state.respawnX;
+        _metalView.posY = state.respawnY;
+        _metalView.posZ = state.respawnZ;
+        _metalView.camYaw = state.respawnYaw;
+        _metalView.camPitch = 0;
+        _metalView.velocityX = 0;
+        _metalView.velocityY = 0;
+        _metalView.velocityZ = 0;
+        _metalView.onGround = YES;
+        NSLog(@"[RENDERER] Teleported to respawn point");
+    }
+
     // ============================================
     // PHYSICS SYSTEM - Proper collision order
     // ============================================

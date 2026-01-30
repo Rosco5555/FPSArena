@@ -276,16 +276,31 @@
 - (void)doLocalRespawn {
     GameState *state = [GameState shared];
 
-    // Get spawn point (alternate between points)
-    int spawnIndex = state.localPlayerId - 1;  // 0 or 1
+    // Get spawn point (alternate between points based on player ID)
+    int spawnIndex = (state.localPlayerId - 1) % NUM_SPAWN_POINTS;
     SpawnPoint *spawnPt = [state getSpawnPoint:spawnIndex];
-    if (!spawnPt) return;
+    if (!spawnPt) {
+        // Fallback to spawn 0
+        spawnPt = [state getSpawnPoint:0];
+        if (!spawnPt) return;
+    }
 
+    // Reset player state
     state.playerHealth = PLAYER_MAX_HEALTH;
+    state.playerArmor = 0;
     state.bloodLevel = 0;
     state.gameOver = NO;
 
-    // Send respawn packet
+    // Set respawn teleport position (Renderer will apply this)
+    state.needsRespawnTeleport = YES;
+    state.respawnX = spawnPt->x;
+    state.respawnY = spawnPt->y;
+    state.respawnZ = spawnPt->z;
+    state.respawnYaw = spawnPt->yaw;
+
+    NSLog(@"[RESPAWN] Respawning at (%.1f, %.1f, %.1f)", spawnPt->x, spawnPt->y, spawnPt->z);
+
+    // Send respawn packet to other players
     PlayerNetState netState = {0};
     netState.playerId = (uint32_t)state.localPlayerId;
     netState.posX = spawnPt->x;
