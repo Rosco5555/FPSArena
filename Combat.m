@@ -6,6 +6,7 @@
 #import "DoorSystem.h"
 #import "SoundManager.h"
 #import "WeaponSystem.h"
+#import "MultiplayerController.h"
 #import <math.h>
 
 // Helper function to check ray against environment (walls, doors, etc.)
@@ -295,9 +296,10 @@ CombatHitResult processProjectileHit(simd_float3 muzzle, simd_float3 dir, int da
 
     // Check hit against remote player in multiplayer mode
     if (state.isMultiplayer && state.remotePlayerAlive) {
+        // remotePlayerPosY is at eye level, convert to feet level for hitbox
         simd_float3 remotePos = simd_make_float3(
             state.remotePlayerPosX,
-            state.remotePlayerPosY,
+            state.remotePlayerPosY - PLAYER_HEIGHT,  // Convert eye level to feet level
             state.remotePlayerPosZ
         );
 
@@ -348,15 +350,20 @@ void applySplashDamage(simd_float3 hitPoint, float radius, int damage) {
 
     // Check remote player in splash radius (multiplayer)
     if (state.isMultiplayer && state.remotePlayerAlive) {
+        // Use center of body for splash calculations (eye level - half height)
         simd_float3 remotePos = simd_make_float3(
             state.remotePlayerPosX,
-            state.remotePlayerPosY,
+            state.remotePlayerPosY - PLAYER_HEIGHT * 0.5f,
             state.remotePlayerPosZ
         );
         float dist = simd_distance(hitPoint, remotePos);
         if (dist < radius) {
-            // Splash damage to remote player is handled via network
-            // Just record that splash damage would apply
+            // Splash damage to remote player - send via network
+            float falloff = 1.0f - (dist / radius);
+            int splashDmg = (int)(damage * falloff);
+            if (splashDmg > 0) {
+                [[MultiplayerController shared] sendHitOnRemotePlayer:splashDmg];
+            }
         }
     }
 }

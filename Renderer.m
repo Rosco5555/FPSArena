@@ -1269,6 +1269,182 @@
         [encoder drawPrimitives:MTLPrimitiveTypeTriangle vertexStart:0 vertexCount:24];
     }
 
+    // ============================================
+    // MINIMAP
+    // ============================================
+    if (!state.gameOver && !_metalView.escapedLock) {
+        #define MAX_MINIMAP_VERTS 2000
+        Vertex minimapVerts[MAX_MINIMAP_VERTS];
+        int mv = 0;
+
+        // Minimap settings
+        float mapCenterX = 0.72f;   // Top-right corner
+        float mapCenterY = 0.72f;
+        float mapRadius = 0.22f;    // Size of minimap
+        float mapScale = mapRadius / (ARENA_SIZE * 1.2f);  // World to screen scale
+
+        // Player position and rotation
+        float playerX = _metalView.posX;
+        float playerZ = _metalView.posZ;
+        float playerYaw = _metalView.camYaw;
+
+        // Colors
+        simd_float3 bgColor = {0.1f, 0.1f, 0.12f};
+        simd_float3 borderColor = {0.4f, 0.4f, 0.45f};
+        simd_float3 wallColor = {0.35f, 0.35f, 0.4f};
+        simd_float3 playerColor = {0.2f, 0.8f, 0.3f};
+        simd_float3 enemyColor = {0.9f, 0.2f, 0.2f};
+        simd_float3 allyColor = {0.2f, 0.5f, 0.9f};
+
+        // Helper macro to add a quad
+        #define MINIMAP_QUAD(x0,y0,x1,y1,col) do { \
+            minimapVerts[mv++] = (Vertex){{x0,y0,0},col}; \
+            minimapVerts[mv++] = (Vertex){{x1,y0,0},col}; \
+            minimapVerts[mv++] = (Vertex){{x1,y1,0},col}; \
+            minimapVerts[mv++] = (Vertex){{x0,y0,0},col}; \
+            minimapVerts[mv++] = (Vertex){{x1,y1,0},col}; \
+            minimapVerts[mv++] = (Vertex){{x0,y1,0},col}; \
+        } while(0)
+
+        // Helper to transform world coords to minimap coords (rotated around player)
+        #define WORLD_TO_MAP(wx, wz, outX, outY) do { \
+            float dx = (wx) - playerX; \
+            float dz = (wz) - playerZ; \
+            float cosYaw = cosf(-playerYaw + M_PI); \
+            float sinYaw = sinf(-playerYaw + M_PI); \
+            float rotX = dx * cosYaw - dz * sinYaw; \
+            float rotZ = dx * sinYaw + dz * cosYaw; \
+            outX = mapCenterX + rotX * mapScale; \
+            outY = mapCenterY + rotZ * mapScale; \
+        } while(0)
+
+        // Draw background (square)
+        float bgPad = 0.01f;
+        MINIMAP_QUAD(mapCenterX - mapRadius - bgPad, mapCenterY - mapRadius - bgPad,
+                     mapCenterX + mapRadius + bgPad, mapCenterY + mapRadius + bgPad, bgColor);
+
+        // Draw border
+        float borderW = 0.008f;
+        MINIMAP_QUAD(mapCenterX - mapRadius - bgPad, mapCenterY + mapRadius,
+                     mapCenterX + mapRadius + bgPad, mapCenterY + mapRadius + borderW, borderColor);
+        MINIMAP_QUAD(mapCenterX - mapRadius - bgPad, mapCenterY - mapRadius - borderW,
+                     mapCenterX + mapRadius + bgPad, mapCenterY - mapRadius, borderColor);
+        MINIMAP_QUAD(mapCenterX - mapRadius - borderW, mapCenterY - mapRadius,
+                     mapCenterX - mapRadius, mapCenterY + mapRadius, borderColor);
+        MINIMAP_QUAD(mapCenterX + mapRadius, mapCenterY - mapRadius,
+                     mapCenterX + mapRadius + borderW, mapCenterY + mapRadius, borderColor);
+
+        // Draw map structures (simplified rectangles)
+        // Command building
+        {
+            float wx1, wy1, wx2, wy2, wx3, wy3, wx4, wy4;
+            float hw = CMD_BUILDING_WIDTH / 2.0f;
+            float hd = CMD_BUILDING_DEPTH / 2.0f;
+            WORLD_TO_MAP(CMD_BUILDING_X - hw, CMD_BUILDING_Z - hd, wx1, wy1);
+            WORLD_TO_MAP(CMD_BUILDING_X + hw, CMD_BUILDING_Z - hd, wx2, wy2);
+            WORLD_TO_MAP(CMD_BUILDING_X + hw, CMD_BUILDING_Z + hd, wx3, wy3);
+            WORLD_TO_MAP(CMD_BUILDING_X - hw, CMD_BUILDING_Z + hd, wx4, wy4);
+            // Draw as two triangles
+            minimapVerts[mv++] = (Vertex){{wx1, wy1, 0}, wallColor};
+            minimapVerts[mv++] = (Vertex){{wx2, wy2, 0}, wallColor};
+            minimapVerts[mv++] = (Vertex){{wx3, wy3, 0}, wallColor};
+            minimapVerts[mv++] = (Vertex){{wx1, wy1, 0}, wallColor};
+            minimapVerts[mv++] = (Vertex){{wx3, wy3, 0}, wallColor};
+            minimapVerts[mv++] = (Vertex){{wx4, wy4, 0}, wallColor};
+        }
+
+        // Guard towers (4 corners)
+        float towerPos[4][2] = {
+            {TOWER_OFFSET, TOWER_OFFSET},
+            {-TOWER_OFFSET, TOWER_OFFSET},
+            {-TOWER_OFFSET, -TOWER_OFFSET},
+            {TOWER_OFFSET, -TOWER_OFFSET}
+        };
+        for (int t = 0; t < 4; t++) {
+            float tw = TOWER_SIZE / 2.0f;
+            float wx1, wy1, wx2, wy2, wx3, wy3, wx4, wy4;
+            WORLD_TO_MAP(towerPos[t][0] - tw, towerPos[t][1] - tw, wx1, wy1);
+            WORLD_TO_MAP(towerPos[t][0] + tw, towerPos[t][1] - tw, wx2, wy2);
+            WORLD_TO_MAP(towerPos[t][0] + tw, towerPos[t][1] + tw, wx3, wy3);
+            WORLD_TO_MAP(towerPos[t][0] - tw, towerPos[t][1] + tw, wx4, wy4);
+            minimapVerts[mv++] = (Vertex){{wx1, wy1, 0}, wallColor};
+            minimapVerts[mv++] = (Vertex){{wx2, wy2, 0}, wallColor};
+            minimapVerts[mv++] = (Vertex){{wx3, wy3, 0}, wallColor};
+            minimapVerts[mv++] = (Vertex){{wx1, wy1, 0}, wallColor};
+            minimapVerts[mv++] = (Vertex){{wx3, wy3, 0}, wallColor};
+            minimapVerts[mv++] = (Vertex){{wx4, wy4, 0}, wallColor};
+        }
+
+        // Bunker
+        {
+            float hw = BUNKER_WIDTH / 2.0f;
+            float hd = BUNKER_DEPTH / 2.0f;
+            float wx1, wy1, wx2, wy2, wx3, wy3, wx4, wy4;
+            WORLD_TO_MAP(BUNKER_X - hw, BUNKER_Z - hd, wx1, wy1);
+            WORLD_TO_MAP(BUNKER_X + hw, BUNKER_Z - hd, wx2, wy2);
+            WORLD_TO_MAP(BUNKER_X + hw, BUNKER_Z + hd, wx3, wy3);
+            WORLD_TO_MAP(BUNKER_X - hw, BUNKER_Z + hd, wx4, wy4);
+            minimapVerts[mv++] = (Vertex){{wx1, wy1, 0}, wallColor};
+            minimapVerts[mv++] = (Vertex){{wx2, wy2, 0}, wallColor};
+            minimapVerts[mv++] = (Vertex){{wx3, wy3, 0}, wallColor};
+            minimapVerts[mv++] = (Vertex){{wx1, wy1, 0}, wallColor};
+            minimapVerts[mv++] = (Vertex){{wx3, wy3, 0}, wallColor};
+            minimapVerts[mv++] = (Vertex){{wx4, wy4, 0}, wallColor};
+        }
+
+        // Draw enemies as dots (single player mode)
+        if (!state.isMultiplayer) {
+            for (int i = 0; i < NUM_ENEMIES; i++) {
+                if (state.enemyAlive[i]) {
+                    float ex, ey;
+                    WORLD_TO_MAP(state.enemyX[i], state.enemyZ[i], ex, ey);
+                    // Clip to minimap bounds
+                    if (ex > mapCenterX - mapRadius && ex < mapCenterX + mapRadius &&
+                        ey > mapCenterY - mapRadius && ey < mapCenterY + mapRadius) {
+                        float dotSize = 0.012f;
+                        MINIMAP_QUAD(ex - dotSize, ey - dotSize, ex + dotSize, ey + dotSize, enemyColor);
+                    }
+                }
+            }
+        } else {
+            // Multiplayer - draw remote player
+            if (state.remotePlayerAlive) {
+                float rx = state.remotePlayerPosX;
+                float rz = state.remotePlayerPosZ;
+                float ex, ey;
+                WORLD_TO_MAP(rx, rz, ex, ey);
+                if (ex > mapCenterX - mapRadius && ex < mapCenterX + mapRadius &&
+                    ey > mapCenterY - mapRadius && ey < mapCenterY + mapRadius) {
+                    float dotSize = 0.012f;
+                    MINIMAP_QUAD(ex - dotSize, ey - dotSize, ex + dotSize, ey + dotSize, enemyColor);
+                }
+            }
+        }
+
+        // Draw player (triangle pointing in look direction - always centered)
+        {
+            float triSize = 0.018f;
+            // Player is always at center, pointing up (forward)
+            float px = mapCenterX;
+            float py = mapCenterY;
+            // Triangle pointing up
+            minimapVerts[mv++] = (Vertex){{px, py + triSize * 1.5f, 0}, playerColor};
+            minimapVerts[mv++] = (Vertex){{px - triSize, py - triSize, 0}, playerColor};
+            minimapVerts[mv++] = (Vertex){{px + triSize, py - triSize, 0}, playerColor};
+        }
+
+        // Render minimap
+        id<MTLBuffer> minimapBuffer = [_device newBufferWithBytes:minimapVerts length:sizeof(Vertex)*mv options:MTLResourceStorageModeShared];
+        [encoder setRenderPipelineState:_bgPipelineState];
+        [encoder setDepthStencilState:_bgDepthState];
+        [encoder setVertexBuffer:minimapBuffer offset:0 atIndex:0];
+        [encoder drawPrimitives:MTLPrimitiveTypeTriangle vertexStart:0 vertexCount:mv];
+
+        #undef MAX_MINIMAP_VERTS
+        #undef MINIMAP_QUAD
+        #undef WORLD_TO_MAP
+    }
+
     // Draw E prompt
     if (state.playerNearDoor && !state.gameOver && !_metalView.escapedLock) {
         [encoder setVertexBuffer:_ePromptBuffer offset:0 atIndex:0];
