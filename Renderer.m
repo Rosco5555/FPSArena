@@ -514,6 +514,12 @@
             _metalView.posY = bestGroundY + PLAYER_HEIGHT;
             _metalView.velocityY = 0;
             _metalView.onGround = YES;
+
+            // Auto-jump when holding space (bunny hop)
+            if (_metalView.keySpace) {
+                _metalView.velocityY = JUMP_VELOCITY;
+                _metalView.onGround = NO;
+            }
         }
 
         // Update position variables after ground snap

@@ -103,10 +103,7 @@
             }
             break;
         case ' ':
-            if (_onGround) {
-                _velocityY = JUMP_VELOCITY;
-                _onGround = NO;
-            }
+            _keySpace = YES;
             break;
         case 'e':
             if (state.playerNearDoor && !state.gameOver) {
@@ -147,6 +144,7 @@
         case 'a': _keyA = NO; break;
         case 's': _keyS = NO; break;
         case 'd': _keyD = NO; break;
+        case ' ': _keySpace = NO; break;
         case '\t': _keyTab = NO; break;
     }
 }

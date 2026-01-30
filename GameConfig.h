@@ -4,9 +4,9 @@
 
 // Physics
 static const float GRAVITY = 0.008f;
-static const float MOVE_ACCEL = 0.008f;
+static const float MOVE_ACCEL = 0.014f;
 static const float MOVE_FRICTION = 0.88f;
-static const float MAX_SPEED = 0.15f;
+static const float MAX_SPEED = 0.22f;
 static const float JUMP_VELOCITY = 0.20f;
 static const float PLAYER_HEIGHT = 1.7f;
 static const float PLAYER_RADIUS = 0.3f;
@@ -17,7 +17,7 @@ static const float CROUCH_SPEED_MULTIPLIER = 0.5f; // Move at 50% speed when cro
 static const float CROUCH_TRANSITION_SPEED = 0.1f; // How fast to transition to/from crouch
 
 // Strafing
-static const float STRAFE_MULTIPLIER = 1.8f;       // Strafe speed multiplier
+static const float STRAFE_MULTIPLIER = 2.2f;       // Strafe speed multiplier
 
 // Combat
 static const int PLAYER_MAX_HEALTH = 100;
