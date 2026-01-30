@@ -233,12 +233,11 @@
 - (void)handleLocalDeath {
     GameState *state = [GameState shared];
 
-    // Send death notification
+    // Send death notification (kill stats updated via didReceiveKill callback)
     [_networkManager sendKill:(uint32_t)state.localPlayerId];
 
     // Start respawn timer
     state.localRespawnTimer = RESPAWN_DELAY;
-    state.remotePlayerKills++;
 }
 
 - (void)sendLocalPlayerDeath {

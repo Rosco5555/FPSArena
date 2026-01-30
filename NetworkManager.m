@@ -263,7 +263,8 @@ typedef struct {
     if (_mode != NetworkModeHost) return;
 
     // Notify all connected players
-    for (RemotePlayer *player in _mutableConnectedPlayers) {
+    NSArray *players = [_mutableConnectedPlayers copy];
+    for (RemotePlayer *player in players) {
         [self sendDisconnectToPlayer:player];
     }
 
@@ -453,7 +454,8 @@ typedef struct {
 
     // Check if we already have this host
     DiscoveredHost *existing = nil;
-    for (DiscoveredHost *host in _mutableDiscoveredHosts) {
+    NSArray *hosts = [_mutableDiscoveredHosts copy];
+    for (DiscoveredHost *host in hosts) {
         if ([host.address isEqualToString:address] && host.port == packet->port) {
             existing = host;
             break;
@@ -564,7 +566,8 @@ typedef struct {
 
     if (_mode == NetworkModeHost) {
         // Send to all connected clients
-        for (RemotePlayer *player in _mutableConnectedPlayers) {
+        NSArray *players = [_mutableConnectedPlayers copy];
+        for (RemotePlayer *player in players) {
             if (player.tcpSocket >= 0) {
                 send(player.tcpSocket, buffer, sizeof(header) + 1 + data.length, 0);
             }
@@ -591,7 +594,8 @@ typedef struct {
 
     if (_mode == NetworkModeHost) {
         // Broadcast to all connected clients via their addresses
-        for (RemotePlayer *player in _mutableConnectedPlayers) {
+        NSArray *players = [_mutableConnectedPlayers copy];
+        for (RemotePlayer *player in players) {
             struct sockaddr_in addr;
             memset(&addr, 0, sizeof(addr));
             addr.sin_family = AF_INET;
@@ -619,7 +623,8 @@ typedef struct {
     size_t totalLength = sizeof(header) + sizeof(GamePacket);
 
     if (_mode == NetworkModeHost) {
-        for (RemotePlayer *player in _mutableConnectedPlayers) {
+        NSArray *players = [_mutableConnectedPlayers copy];
+        for (RemotePlayer *player in players) {
             if (player.tcpSocket >= 0) {
                 send(player.tcpSocket, _sendBuffer, totalLength, 0);
             }
@@ -966,7 +971,8 @@ typedef struct {
     // Update the player's state
     if (_mode == NetworkModeHost) {
         // Find the player
-        for (RemotePlayer *player in _mutableConnectedPlayers) {
+        NSArray *players = [_mutableConnectedPlayers copy];
+        for (RemotePlayer *player in players) {
             if (player.playerId == playerId) {
                 // Only accept newer packets (handle sequence wrap-around)
                 int32_t seqDiff = (int32_t)(packet->sequence - player.lastSequence);
@@ -1048,7 +1054,8 @@ typedef struct {
 }
 
 - (void)relayStateUpdateToOtherPlayers:(GamePacket *)packet exceptPlayer:(uint32_t)excludeId {
-    for (RemotePlayer *player in _mutableConnectedPlayers) {
+    NSArray *players = [_mutableConnectedPlayers copy];
+    for (RemotePlayer *player in players) {
         if (player.playerId != excludeId) {
             struct sockaddr_in addr;
             memset(&addr, 0, sizeof(addr));
@@ -1077,7 +1084,8 @@ typedef struct {
     memcpy(_sendBuffer, &header, sizeof(header));
     memcpy(_sendBuffer + sizeof(header), packet, sizeof(GamePacket));
 
-    for (RemotePlayer *player in _mutableConnectedPlayers) {
+    NSArray *players = [_mutableConnectedPlayers copy];
+    for (RemotePlayer *player in players) {
         if (player.playerId != excludeId && player.tcpSocket >= 0) {
             send(player.tcpSocket, _sendBuffer, sizeof(header) + sizeof(GamePacket), 0);
         }
@@ -1161,7 +1169,8 @@ typedef struct {
     NSTimeInterval now = [NSDate timeIntervalSinceReferenceDate];
 
     if (_mode == NetworkModeHost) {
-        for (RemotePlayer *player in _mutableConnectedPlayers) {
+        NSArray *players = [_mutableConnectedPlayers copy];
+        for (RemotePlayer *player in players) {
             if (player.tcpSocket >= 0) {
                 send(player.tcpSocket, buffer, sizeof(buffer), 0);
                 _pingSendTimes[@(player.playerId)] = @(now);
@@ -1225,7 +1234,8 @@ typedef struct {
         _tcpClientSocket = -1;
     }
 
-    for (RemotePlayer *player in _mutableConnectedPlayers) {
+    NSArray *playersToClean = [_mutableConnectedPlayers copy];
+    for (RemotePlayer *player in playersToClean) {
         if (player.tcpSocket >= 0) {
             close(player.tcpSocket);
             player.tcpSocket = -1;

@@ -2,7 +2,8 @@
   "permissions": {
     "allow": [
       "Bash(clang:*)",
-      "Bash(xcodebuild:*)"
+      "Bash(xcodebuild:*)",
+      "Bash(grep:*)"
     ]
   }
 }
