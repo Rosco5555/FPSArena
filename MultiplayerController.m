@@ -263,7 +263,11 @@
     state.gameOver = YES;
     NSLog(@"[DEATH] Local player died! Sending kill notification for player %d", state.localPlayerId);
 
-    // Send death notification (kill stats updated via didReceiveKill callback)
+    // Update local scoreboard - remote player killed us
+    state.remotePlayerKills++;
+    NSLog(@"[DEATH] Remote player kills updated to: %d", state.remotePlayerKills);
+
+    // Send death notification to remote player so they can update their scoreboard
     [_networkManager sendKill:(uint32_t)state.localPlayerId];
 
     // Start respawn timer
