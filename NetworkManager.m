@@ -550,6 +550,20 @@ typedef struct {
     [self sendReliableGamePacket:&packet];
 }
 
+- (void)sendGameStart {
+    if (_mode != NetworkModeHost) return;
+
+    NSLog(@"NetworkManager: Sending game start to all clients");
+
+    GamePacket packet;
+    memset(&packet, 0, sizeof(packet));
+    packet.packetType = PacketTypeGameStart;
+    packet.sequence = ++_sendSequence;
+    packet.player.playerId = _localPlayerId;
+
+    [self sendReliableGamePacket:&packet];
+}
+
 - (void)sendReliableMessage:(NSData *)data withType:(PacketType)type {
     if (_mode == NetworkModeNone || data.length > NET_MAX_PACKET_SIZE - sizeof(PacketHeader) - 1) {
         return;
@@ -1045,6 +1059,13 @@ typedef struct {
             }
             if (_mode == NetworkModeHost) {
                 [self relayReliablePacketToOtherPlayers:packet exceptPlayer:playerId];
+            }
+            break;
+
+        case PacketTypeGameStart:
+            NSLog(@"NetworkManager: Received game start from host");
+            if ([_delegate respondsToSelector:@selector(networkManager:didReceiveGameStart:)]) {
+                [_delegate networkManager:self didReceiveGameStart:playerId];
             }
             break;
 

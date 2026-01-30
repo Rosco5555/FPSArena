@@ -26,7 +26,8 @@ typedef NS_ENUM(uint8_t, PacketType) {
     PacketTypeConnectAccept = 9,  // Host accepts connection
     PacketTypeDisconnect = 10,  // Player disconnecting
     PacketTypePing = 11,        // Ping for latency measurement
-    PacketTypePong = 12         // Pong response
+    PacketTypePong = 12,        // Pong response
+    PacketTypeGameStart = 13    // Host signals game start
 };
 
 // Network mode
@@ -112,6 +113,7 @@ typedef struct {
 - (void)networkManager:(id)manager didReceiveHit:(int)damage toPlayer:(uint32_t)playerId fromPlayer:(uint32_t)shooterId;
 - (void)networkManager:(id)manager didReceiveKill:(uint32_t)victimId killedBy:(uint32_t)killerId;
 - (void)networkManager:(id)manager didReceiveRespawn:(uint32_t)playerId atPosition:(PlayerNetState)state;
+- (void)networkManager:(id)manager didReceiveGameStart:(uint32_t)hostPlayerId;
 - (void)networkManagerDidConnect:(id)manager withPlayerId:(uint32_t)playerId;
 - (void)networkManagerDidDisconnect:(id)manager;
 - (void)networkManager:(id)manager didFailWithError:(NSError *)error;
@@ -152,6 +154,7 @@ typedef struct {
 - (void)sendHit:(int)damage toPlayer:(uint32_t)playerId;
 - (void)sendKill:(uint32_t)victimId;
 - (void)sendRespawn:(PlayerNetState)state;
+- (void)sendGameStart;
 - (void)sendReliableMessage:(NSData *)data withType:(PacketType)type;
 
 // Polling (call from game loop)

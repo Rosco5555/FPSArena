@@ -172,6 +172,12 @@
     [_lobbyView transitionToState:LobbyStateMainMenu];
 }
 
+- (void)networkManager:(id)manager didReceiveGameStart:(uint32_t)hostPlayerId {
+    NSLog(@"[NETWORK] Received game start signal from host!");
+    // Client starts the game when host sends game start
+    [self startGameWithMultiplayer:YES];
+}
+
 #pragma mark - InputViewDelegate
 
 - (void)inputViewDidRequestMenu {

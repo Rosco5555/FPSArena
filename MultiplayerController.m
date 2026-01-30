@@ -65,10 +65,8 @@
     [state resetForMultiplayer];
     _isInGame = YES;
 
-    // Send game start packet via reliable message
-    PlayerNetState netState = {0};
-    netState.playerId = state.localPlayerId;
-    [_networkManager sendRespawn:netState];  // Reuse respawn to signal game start
+    // Send game start packet to all clients
+    [_networkManager sendGameStart];
 
     NSLog(@"Game started!");
 }
