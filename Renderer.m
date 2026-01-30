@@ -11,6 +11,7 @@
 #import "Enemy.h"
 #import "GeometryBuilder.h"
 #import "MultiplayerController.h"
+#import "PickupSystem.h"
 
 @interface MetalRenderer ()
 @property (nonatomic, strong) id<MTLRenderPipelineState> pipelineState;
@@ -47,6 +48,32 @@
 @property (nonatomic) NSUInteger boxLineVertexCount;
 @property (nonatomic, strong) id<MTLBuffer> remotePlayerBuffer;
 @property (nonatomic) NSUInteger remotePlayerVertexCount;
+
+// Pickup buffers
+@property (nonatomic, strong) id<MTLBuffer> healthPackBuffer;
+@property (nonatomic) NSUInteger healthPackVertexCount;
+@property (nonatomic, strong) id<MTLBuffer> ammoBoxBuffer;
+@property (nonatomic) NSUInteger ammoBoxVertexCount;
+@property (nonatomic, strong) id<MTLBuffer> weaponPickupBuffer;
+@property (nonatomic) NSUInteger weaponPickupVertexCount;
+@property (nonatomic, strong) id<MTLBuffer> armorBuffer;
+@property (nonatomic) NSUInteger armorVertexCount;
+
+// Military base geometry buffers
+@property (nonatomic, strong) id<MTLBuffer> commandBuildingBuffer;
+@property (nonatomic) NSUInteger commandBuildingVertexCount;
+@property (nonatomic, strong) id<MTLBuffer> guardTowerBuffer;
+@property (nonatomic) NSUInteger guardTowerVertexCount;
+@property (nonatomic, strong) id<MTLBuffer> catwalkBuffer;
+@property (nonatomic) NSUInteger catwalkVertexCount;
+@property (nonatomic, strong) id<MTLBuffer> bunkerBuffer;
+@property (nonatomic) NSUInteger bunkerVertexCount;
+@property (nonatomic, strong) id<MTLBuffer> cargoContainersBuffer;
+@property (nonatomic) NSUInteger cargoContainersVertexCount;
+@property (nonatomic, strong) id<MTLBuffer> sandbagBuffer;
+@property (nonatomic) NSUInteger sandbagVertexCount;
+@property (nonatomic, strong) id<MTLBuffer> militaryFloorBuffer;
+@property (nonatomic) NSUInteger militaryFloorVertexCount;
 @end
 
 @implementation MetalRenderer
@@ -96,6 +123,24 @@
         _textVertexBuffer = [GeometryBuilder createPausedTextBufferWithDevice:device vertexCount:&_textVertexCount];
         _boxLineBuffer = [GeometryBuilder createBoxGridBufferWithDevice:device vertexCount:&_boxLineVertexCount];
         _remotePlayerBuffer = [GeometryBuilder createRemotePlayerBufferWithDevice:device vertexCount:&_remotePlayerVertexCount];
+
+        // Create pickup buffers
+        _healthPackBuffer = [GeometryBuilder createHealthPackBufferWithDevice:device vertexCount:&_healthPackVertexCount];
+        _ammoBoxBuffer = [GeometryBuilder createAmmoBoxBufferWithDevice:device vertexCount:&_ammoBoxVertexCount];
+        _weaponPickupBuffer = [GeometryBuilder createWeaponPickupBufferWithDevice:device vertexCount:&_weaponPickupVertexCount];
+        _armorBuffer = [GeometryBuilder createArmorBufferWithDevice:device vertexCount:&_armorVertexCount];
+
+        // Create military base geometry buffers
+        _commandBuildingBuffer = [GeometryBuilder createCommandBuildingBufferWithDevice:device vertexCount:&_commandBuildingVertexCount];
+        _guardTowerBuffer = [GeometryBuilder createGuardTowerBufferWithDevice:device vertexCount:&_guardTowerVertexCount];
+        _catwalkBuffer = [GeometryBuilder createCatwalkBufferWithDevice:device vertexCount:&_catwalkVertexCount];
+        _bunkerBuffer = [GeometryBuilder createBunkerBufferWithDevice:device vertexCount:&_bunkerVertexCount];
+        _cargoContainersBuffer = [GeometryBuilder createCargoContainersBufferWithDevice:device vertexCount:&_cargoContainersVertexCount];
+        _sandbagBuffer = [GeometryBuilder createSandbagBufferWithDevice:device vertexCount:&_sandbagVertexCount];
+        _militaryFloorBuffer = [GeometryBuilder createMilitaryFloorBufferWithDevice:device vertexCount:&_militaryFloorVertexCount];
+
+        // Initialize pickup system
+        [PickupSystem shared];
 
         // Create shaders and pipelines
         NSString *shaderSrc = @""
@@ -177,8 +222,8 @@
     // Update multiplayer network state
     [_metalView sendNetworkState];
 
-    // Apply movement
-    if (!state.gameOver) {
+    // Apply movement (skip when paused)
+    if (!state.gameOver && !state.isPaused) {
         if (_metalView.controlsActive) {
             float fwdX = sinf(_metalView.camYaw);
             float fwdZ = -cosf(_metalView.camYaw);
@@ -215,34 +260,282 @@
         }
     }
 
-    // Gravity and jumping
-    float groundEyeY = FLOOR_Y + PLAYER_HEIGHT;
-    _metalView.velocityY -= GRAVITY;
-    _metalView.posY += _metalView.velocityY;
-    if (_metalView.posY <= groundEyeY) {
-        _metalView.posY = groundEyeY;
-        _metalView.velocityY = 0;
-        _metalView.onGround = YES;
+    // Gravity and jumping - determine base floor level first
+    float px = _metalView.posX;
+    float pz = -3.0f + _metalView.posZ;
+
+    // Check if player is in bunker area (underground floor)
+    float bunkerMinX = BUNKER_X - BUNKER_WIDTH/2;
+    float bunkerMaxX = BUNKER_X + BUNKER_WIDTH/2;
+    float bunkerMinZ = BUNKER_Z - BUNKER_DEPTH/2;
+    float bunkerMaxZ = BUNKER_Z + BUNKER_DEPTH/2 + 3.0f;  // Include stair entrance area
+
+    BOOL inBunkerArea = (px > bunkerMinX && px < bunkerMaxX &&
+                         pz > bunkerMinZ && pz < bunkerMaxZ);
+
+    // Base ground level - use basement level if in bunker, otherwise standard floor
+    float baseGroundY = inBunkerArea ? BASEMENT_LEVEL : FLOOR_Y;
+    float groundEyeY = baseGroundY + PLAYER_HEIGHT;
+
+    // Only apply gravity when not paused
+    if (!state.isPaused) {
+        _metalView.velocityY -= GRAVITY;
+        _metalView.posY += _metalView.velocityY;
+        if (_metalView.posY <= groundEyeY) {
+            _metalView.posY = groundEyeY;
+            _metalView.velocityY = 0;
+            _metalView.onGround = YES;
+        }
     }
 
-    // Roof collision
+    // Platform/roof collision (for standing on elevated surfaces)
     {
         float px = _metalView.posX;
         float pz = -3.0f + _metalView.posZ;
-        float hw = HOUSE_WIDTH / 2.0f;
-        float hd = HOUSE_DEPTH / 2.0f;
-        float roofY = FLOOR_Y + HOUSE_WALL_HEIGHT;
+        float feetY = _metalView.posY - PLAYER_HEIGHT;
+
+        // Command building roof collision (block from going through)
+        float hw = CMD_BUILDING_WIDTH / 2.0f;
+        float hd = CMD_BUILDING_DEPTH / 2.0f;
+        float roofY = FLOOR_Y + CMD_BUILDING_HEIGHT;
         float headY = _metalView.posY + 0.1f;
 
-        if (px > HOUSE_X - hw && px < HOUSE_X + hw && pz > HOUSE_Z - hd && pz < HOUSE_Z + hd) {
+        if (px > CMD_BUILDING_X - hw && px < CMD_BUILDING_X + hw && pz > CMD_BUILDING_Z - hd && pz < CMD_BUILDING_Z + hd) {
             if (headY > roofY) {
                 _metalView.posY = roofY - 0.1f;
                 if (_metalView.velocityY > 0) _metalView.velocityY = 0;
             }
         }
+
+        // Tower platforms - allow standing on them
+        float towerPositions[4][2] = {
+            {TOWER_OFFSET, TOWER_OFFSET},
+            {-TOWER_OFFSET, TOWER_OFFSET},
+            {-TOWER_OFFSET, -TOWER_OFFSET},
+            {TOWER_OFFSET, -TOWER_OFFSET}
+        };
+
+        for (int t = 0; t < 4; t++) {
+            float tx = towerPositions[t][0];
+            float tz = towerPositions[t][1];
+            float platTop = PLATFORM_LEVEL;
+            float platHalfSize = TOWER_SIZE / 2.0f + 0.1f;  // Slight margin for easier landing
+
+            if (px > tx - platHalfSize && px < tx + platHalfSize &&
+                pz > tz - platHalfSize && pz < tz + platHalfSize) {
+                // Player is above platform - land on it
+                if (feetY >= platTop - 0.5f && _metalView.velocityY <= 0) {
+                    _metalView.posY = platTop + PLAYER_HEIGHT;
+                    _metalView.velocityY = 0;
+                    _metalView.onGround = YES;
+                }
+            }
+        }
+
+        // Catwalk platforms - allow standing on them
+        // North catwalk
+        if (px > -TOWER_OFFSET + TOWER_SIZE/2 && px < TOWER_OFFSET - TOWER_SIZE/2 &&
+            pz > TOWER_OFFSET - CATWALK_WIDTH/2 && pz < TOWER_OFFSET + CATWALK_WIDTH/2) {
+            if (feetY >= PLATFORM_LEVEL - 0.5f && _metalView.velocityY <= 0) {
+                _metalView.posY = PLATFORM_LEVEL + PLAYER_HEIGHT;
+                _metalView.velocityY = 0;
+                _metalView.onGround = YES;
+            }
+        }
+        // South catwalk
+        if (px > -TOWER_OFFSET + TOWER_SIZE/2 && px < TOWER_OFFSET - TOWER_SIZE/2 &&
+            pz > -TOWER_OFFSET - CATWALK_WIDTH/2 && pz < -TOWER_OFFSET + CATWALK_WIDTH/2) {
+            if (feetY >= PLATFORM_LEVEL - 0.5f && _metalView.velocityY <= 0) {
+                _metalView.posY = PLATFORM_LEVEL + PLAYER_HEIGHT;
+                _metalView.velocityY = 0;
+                _metalView.onGround = YES;
+            }
+        }
+        // East catwalk
+        if (px > TOWER_OFFSET - CATWALK_WIDTH/2 && px < TOWER_OFFSET + CATWALK_WIDTH/2 &&
+            pz > -TOWER_OFFSET + TOWER_SIZE/2 && pz < TOWER_OFFSET - TOWER_SIZE/2) {
+            if (feetY >= PLATFORM_LEVEL - 0.5f && _metalView.velocityY <= 0) {
+                _metalView.posY = PLATFORM_LEVEL + PLAYER_HEIGHT;
+                _metalView.velocityY = 0;
+                _metalView.onGround = YES;
+            }
+        }
+        // West catwalk
+        if (px > -TOWER_OFFSET - CATWALK_WIDTH/2 && px < -TOWER_OFFSET + CATWALK_WIDTH/2 &&
+            pz > -TOWER_OFFSET + TOWER_SIZE/2 && pz < TOWER_OFFSET - TOWER_SIZE/2) {
+            if (feetY >= PLATFORM_LEVEL - 0.5f && _metalView.velocityY <= 0) {
+                _metalView.posY = PLATFORM_LEVEL + PLAYER_HEIGHT;
+                _metalView.velocityY = 0;
+                _metalView.onGround = YES;
+            }
+        }
+
+        // Cargo container tops - allow standing on them
+        // Positions match GeometryBuilder.m exactly: {x, z, rotated}
+        // rotated=1 means length/width are swapped
+        struct { float x, z; int rotated; float topY; } containerPlatforms[] = {
+            {8.0f, 4.0f, 0, FLOOR_Y + CONTAINER_HEIGHT},
+            {8.5f, 6.5f, 1, FLOOR_Y + CONTAINER_HEIGHT},
+            {-8.0f, 4.0f, 0, FLOOR_Y + CONTAINER_HEIGHT},
+            {-8.5f, 6.5f, 1, FLOOR_Y + CONTAINER_HEIGHT},
+            {6.0f, -8.0f, 1, FLOOR_Y + CONTAINER_HEIGHT},
+            {-6.0f, -8.0f, 1, FLOOR_Y + CONTAINER_HEIGHT},
+            {0.0f, -12.0f, 0, FLOOR_Y + CONTAINER_HEIGHT},
+            {12.0f, 0.0f, 1, FLOOR_Y + CONTAINER_HEIGHT},
+            {8.0f, 4.0f, 0, FLOOR_Y + CONTAINER_HEIGHT * 2}  // Stacked container on top of first
+        };
+
+        for (int c = 0; c < 9; c++) {
+            float cx = containerPlatforms[c].x;
+            float cy = containerPlatforms[c].topY;
+            float cz = containerPlatforms[c].z;
+            float cxl = containerPlatforms[c].rotated ? CONTAINER_WIDTH/2 : CONTAINER_LENGTH/2;
+            float czl = containerPlatforms[c].rotated ? CONTAINER_LENGTH/2 : CONTAINER_WIDTH/2;
+
+            if (px > cx - cxl && px < cx + cxl &&
+                pz > cz - czl && pz < cz + czl) {
+                // Allow landing from above - check if feet are at or above container top
+                if (feetY >= cy - 0.5f && _metalView.velocityY <= 0) {
+                    _metalView.posY = cy + PLAYER_HEIGHT;
+                    _metalView.velocityY = 0;
+                    _metalView.onGround = YES;
+                }
+            }
+        }
+
+        // Command building second floor platform (from GeometryBuilder.m: floorY = FLOOR_Y + CMD_BUILDING_HEIGHT/2)
+        // The floor has a stair hole in the center (2x2 units)
+        float floorY = FLOOR_Y + CMD_BUILDING_HEIGHT / 2.0f;
+        float stairHoleW = 2.0f / 2.0f;  // half-width
+        float stairHoleD = 2.0f / 2.0f;  // half-depth
+        float innerWall = CMD_WALL_THICK;
+
+        // Check if player is inside building on second floor (not in stair hole)
+        if (px > CMD_BUILDING_X - hw + innerWall && px < CMD_BUILDING_X + hw - innerWall &&
+            pz > CMD_BUILDING_Z - hd + innerWall && pz < CMD_BUILDING_Z + hd - innerWall) {
+            // Not in the stair hole area
+            BOOL inStairHole = (px > CMD_BUILDING_X - stairHoleW && px < CMD_BUILDING_X + stairHoleW &&
+                               pz > CMD_BUILDING_Z - stairHoleD && pz < CMD_BUILDING_Z + stairHoleD);
+            if (!inStairHole) {
+                // Allow landing from above on second floor
+                if (feetY >= floorY - 0.5f && feetY <= floorY + 1.0f && _metalView.velocityY <= 0) {
+                    _metalView.posY = floorY + PLAYER_HEIGHT;
+                    _metalView.velocityY = 0;
+                    _metalView.onGround = YES;
+                }
+            }
+        }
+
+        // Command building interior stairs (6 steps from GeometryBuilder.m)
+        // Stairs go from FLOOR_Y to floorY, positioned at center-front of building
+        int cmdNumSteps = 6;
+        float cmdStepH = (floorY - FLOOR_Y) / cmdNumSteps;
+        float cmdStepD = stairHoleD * 2 / cmdNumSteps;
+        float cmdStairX = CMD_BUILDING_X - stairHoleW + 0.1f;
+        float cmdStairW = stairHoleW * 2 - 0.2f;
+
+        for (int i = 0; i < cmdNumSteps; i++) {
+            float stepTop = FLOOR_Y + (i + 1) * cmdStepH;
+            float stepZStart = CMD_BUILDING_Z + stairHoleD - i * cmdStepD;
+            float stepZEnd = stepZStart - cmdStepD;
+
+            if (px > cmdStairX && px < cmdStairX + cmdStairW &&
+                pz > stepZEnd && pz < stepZStart) {
+                if (feetY >= stepTop - 0.3f && feetY <= stepTop + 0.3f && _metalView.velocityY <= 0) {
+                    _metalView.posY = stepTop + PLAYER_HEIGHT;
+                    _metalView.velocityY = 0;
+                    _metalView.onGround = YES;
+                }
+            }
+        }
+
+        // Guard tower ramps (from GeometryBuilder.m)
+        // Each tower has a ramp going diagonally from platform to ground
+        float rampW = RAMP_WIDTH / 2.0f;
+        float rampL = RAMP_LENGTH;
+        float ts = TOWER_SIZE / 2.0f;
+        float platY = FLOOR_Y + TOWER_HEIGHT;
+
+        float towerPos[4][2] = {
+            {TOWER_OFFSET, TOWER_OFFSET},
+            {-TOWER_OFFSET, TOWER_OFFSET},
+            {-TOWER_OFFSET, -TOWER_OFFSET},
+            {TOWER_OFFSET, -TOWER_OFFSET}
+        };
+
+        for (int t = 0; t < 4; t++) {
+            float tx = towerPos[t][0];
+            float tz = towerPos[t][1];
+            float rampDx = (tx > 0) ? -1.0f : 1.0f;
+            float rampDz = (tz > 0) ? -1.0f : 1.0f;
+
+            float rampStartX = tx + rampDx * ts;
+            float rampStartZ = tz + rampDz * ts;
+            float rampEndX = rampStartX + rampDx * rampL;
+            float rampEndZ = rampStartZ + rampDz * rampL;
+
+            // Ramp bounds (diagonal rectangle)
+            float rampMinX = fminf(rampStartX, rampEndX) - rampW * fabsf(rampDz);
+            float rampMaxX = fmaxf(rampStartX, rampEndX) + rampW * fabsf(rampDz);
+            float rampMinZ = fminf(rampStartZ, rampEndZ) - rampW * fabsf(rampDx);
+            float rampMaxZ = fmaxf(rampStartZ, rampEndZ) + rampW * fabsf(rampDx);
+
+            if (px > rampMinX && px < rampMaxX && pz > rampMinZ && pz < rampMaxZ) {
+                // Calculate height along ramp based on position
+                float progressX = (px - rampEndX) / (rampStartX - rampEndX);
+                float progressZ = (pz - rampEndZ) / (rampStartZ - rampEndZ);
+                float progress = (fabsf(rampStartX - rampEndX) > fabsf(rampStartZ - rampEndZ)) ? progressX : progressZ;
+                progress = fmaxf(0.0f, fminf(1.0f, progress));
+                float rampY = FLOOR_Y + progress * (platY - FLOOR_Y);
+
+                if (feetY >= rampY - 0.3f && feetY <= rampY + 0.5f && _metalView.velocityY <= 0) {
+                    _metalView.posY = rampY + PLAYER_HEIGHT;
+                    _metalView.velocityY = 0;
+                    _metalView.onGround = YES;
+                }
+            }
+        }
+
+        // Bunker floor (underground at BASEMENT_LEVEL)
+        float bx = BUNKER_X;
+        float bz = BUNKER_Z;
+        float bhw = BUNKER_WIDTH / 2.0f;
+        float bhd = BUNKER_DEPTH / 2.0f;
+        float bwt = 0.4f;
+        float bunkerFloorY = BASEMENT_LEVEL;
+
+        if (px > bx - bhw + bwt && px < bx + bhw - bwt &&
+            pz > bz - bhd + bwt && pz < bz + bhd - bwt) {
+            if (feetY >= bunkerFloorY - 0.1f && feetY <= bunkerFloorY + 0.3f && _metalView.velocityY <= 0) {
+                _metalView.posY = bunkerFloorY + PLAYER_HEIGHT;
+                _metalView.velocityY = 0;
+                _metalView.onGround = YES;
+            }
+        }
+
+        // Bunker stairs (8 steps from GeometryBuilder.m going from FLOOR_Y down to BASEMENT_LEVEL)
+        int bunkerNumSteps = 8;
+        float bunkerStepH = (FLOOR_Y - BASEMENT_LEVEL) / bunkerNumSteps;
+        float bunkerStepD = (bhd * 2 - bwt * 2) / bunkerNumSteps;
+        float bsw = BUNKER_STAIR_WIDTH / 2.0f;
+
+        for (int i = 0; i < bunkerNumSteps; i++) {
+            float stepTop = FLOOR_Y - (i + 1) * bunkerStepH + bunkerStepH;  // top of this step
+            float stepZStart = bz + bhd - bwt - i * bunkerStepD;
+            float stepZEnd = stepZStart - bunkerStepD;
+
+            if (px > bx - bsw && px < bx + bsw &&
+                pz > stepZEnd && pz < stepZStart) {
+                if (feetY >= stepTop - bunkerStepH - 0.1f && feetY <= stepTop + 0.3f && _metalView.velocityY <= 0) {
+                    _metalView.posY = stepTop + PLAYER_HEIGHT;
+                    _metalView.velocityY = 0;
+                    _metalView.onGround = YES;
+                }
+            }
+        }
     }
 
-    // Wall collision
+    // Wall collision (military base)
     {
         float px = _metalView.posX;
         float py = _metalView.posY;
@@ -250,26 +543,117 @@
         float feetY = py - PLAYER_HEIGHT;
         float headY = py + 0.1f;
 
-        float hw = HOUSE_WIDTH / 2.0f;
-        float hd = HOUSE_DEPTH / 2.0f;
-        float wt = HOUSE_WALL_THICK;
+        float hw = CMD_BUILDING_WIDTH / 2.0f;
+        float hd = CMD_BUILDING_DEPTH / 2.0f;
+        float wt = CMD_WALL_THICK;
         float fy = FLOOR_Y;
-        float wh = HOUSE_WALL_HEIGHT;
-        float dw = DOOR_WIDTH / 2.0f;
+        float wh = CMD_BUILDING_HEIGHT;
+        float dw = CMD_DOOR_WIDTH / 2.0f;
         float cw = WALL_WIDTH / 2.0f;
         float cd = WALL_DEPTH / 2.0f;
 
+        // Tower leg dimensions from GeometryBuilder.m
+        float ts = TOWER_SIZE / 2.0f;  // 1.5f half-size
+        float legW = 0.3f;             // leg width from geometry
+
+        // Build wall collision array - command building walls + legacy walls + military structures
         float walls[][6] = {
-            {HOUSE_X - hw - wt, HOUSE_Z - hd - wt, HOUSE_X + hw + wt, HOUSE_Z - hd, fy, fy + wh},
-            {HOUSE_X - hw - wt, HOUSE_Z - hd, HOUSE_X - hw, HOUSE_Z + hd + wt, fy, fy + wh},
-            {HOUSE_X + hw, HOUSE_Z - hd, HOUSE_X + hw + wt, HOUSE_Z + hd + wt, fy, fy + wh},
-            {HOUSE_X - hw, HOUSE_Z + hd, HOUSE_X - dw, HOUSE_Z + hd + wt, fy, fy + wh},
-            {HOUSE_X + dw, HOUSE_Z + hd, HOUSE_X + hw, HOUSE_Z + hd + wt, fy, fy + wh},
-            {HOUSE_X - dw, HOUSE_Z + hd, HOUSE_X + dw, HOUSE_Z + hd + wt, fy + DOOR_HEIGHT, fy + wh},
+            // Command building walls (4 outer walls + doorway)
+            {CMD_BUILDING_X - hw - wt, CMD_BUILDING_Z - hd - wt, CMD_BUILDING_X + hw + wt, CMD_BUILDING_Z - hd, fy, fy + wh},
+            {CMD_BUILDING_X - hw - wt, CMD_BUILDING_Z - hd, CMD_BUILDING_X - hw, CMD_BUILDING_Z + hd + wt, fy, fy + wh},
+            {CMD_BUILDING_X + hw, CMD_BUILDING_Z - hd, CMD_BUILDING_X + hw + wt, CMD_BUILDING_Z + hd + wt, fy, fy + wh},
+            {CMD_BUILDING_X - hw, CMD_BUILDING_Z + hd, CMD_BUILDING_X - dw, CMD_BUILDING_Z + hd + wt, fy, fy + wh},
+            {CMD_BUILDING_X + dw, CMD_BUILDING_Z + hd, CMD_BUILDING_X + hw, CMD_BUILDING_Z + hd + wt, fy, fy + wh},
+            {CMD_BUILDING_X - dw, CMD_BUILDING_Z + hd, CMD_BUILDING_X + dw, CMD_BUILDING_Z + hd + wt, fy + CMD_DOOR_HEIGHT, fy + wh},
+            // Legacy cover walls
             {WALL1_X - cw, WALL1_Z - cd, WALL1_X + cw, WALL1_Z + cd, fy, fy + WALL_HEIGHT},
             {WALL2_X - cw, WALL2_Z - cd, WALL2_X + cw, WALL2_Z + cd, fy, fy + WALL_HEIGHT},
+            // Tower 1 (NE: 15,15) - 4 corner legs matching GeometryBuilder.m
+            {TOWER_OFFSET - ts, TOWER_OFFSET - ts, TOWER_OFFSET - ts + legW, TOWER_OFFSET - ts + legW, fy, PLATFORM_LEVEL},
+            {TOWER_OFFSET + ts - legW, TOWER_OFFSET - ts, TOWER_OFFSET + ts, TOWER_OFFSET - ts + legW, fy, PLATFORM_LEVEL},
+            {TOWER_OFFSET - ts, TOWER_OFFSET + ts - legW, TOWER_OFFSET - ts + legW, TOWER_OFFSET + ts, fy, PLATFORM_LEVEL},
+            {TOWER_OFFSET + ts - legW, TOWER_OFFSET + ts - legW, TOWER_OFFSET + ts, TOWER_OFFSET + ts, fy, PLATFORM_LEVEL},
+            // Tower 2 (NW: -15,15) - 4 corner legs
+            {-TOWER_OFFSET - ts, TOWER_OFFSET - ts, -TOWER_OFFSET - ts + legW, TOWER_OFFSET - ts + legW, fy, PLATFORM_LEVEL},
+            {-TOWER_OFFSET + ts - legW, TOWER_OFFSET - ts, -TOWER_OFFSET + ts, TOWER_OFFSET - ts + legW, fy, PLATFORM_LEVEL},
+            {-TOWER_OFFSET - ts, TOWER_OFFSET + ts - legW, -TOWER_OFFSET - ts + legW, TOWER_OFFSET + ts, fy, PLATFORM_LEVEL},
+            {-TOWER_OFFSET + ts - legW, TOWER_OFFSET + ts - legW, -TOWER_OFFSET + ts, TOWER_OFFSET + ts, fy, PLATFORM_LEVEL},
+            // Tower 3 (SW: -15,-15) - 4 corner legs
+            {-TOWER_OFFSET - ts, -TOWER_OFFSET - ts, -TOWER_OFFSET - ts + legW, -TOWER_OFFSET - ts + legW, fy, PLATFORM_LEVEL},
+            {-TOWER_OFFSET + ts - legW, -TOWER_OFFSET - ts, -TOWER_OFFSET + ts, -TOWER_OFFSET - ts + legW, fy, PLATFORM_LEVEL},
+            {-TOWER_OFFSET - ts, -TOWER_OFFSET + ts - legW, -TOWER_OFFSET - ts + legW, -TOWER_OFFSET + ts, fy, PLATFORM_LEVEL},
+            {-TOWER_OFFSET + ts - legW, -TOWER_OFFSET + ts - legW, -TOWER_OFFSET + ts, -TOWER_OFFSET + ts, fy, PLATFORM_LEVEL},
+            // Tower 4 (SE: 15,-15) - 4 corner legs
+            {TOWER_OFFSET - ts, -TOWER_OFFSET - ts, TOWER_OFFSET - ts + legW, -TOWER_OFFSET - ts + legW, fy, PLATFORM_LEVEL},
+            {TOWER_OFFSET + ts - legW, -TOWER_OFFSET - ts, TOWER_OFFSET + ts, -TOWER_OFFSET - ts + legW, fy, PLATFORM_LEVEL},
+            {TOWER_OFFSET - ts, -TOWER_OFFSET + ts - legW, TOWER_OFFSET - ts + legW, -TOWER_OFFSET + ts, fy, PLATFORM_LEVEL},
+            {TOWER_OFFSET + ts - legW, -TOWER_OFFSET + ts - legW, TOWER_OFFSET + ts, -TOWER_OFFSET + ts, fy, PLATFORM_LEVEL},
+            // Cargo containers (8 ground + 1 stacked) - positions from GeometryBuilder.m
+            // Format: {xMin, zMin, xMax, zMax, yMin, yMax}
+            // Non-rotated: length along X, width along Z
+            // Rotated: width along X, length along Z
+            // Container 1: {8.0f, 4.0f, rotated=0}
+            {8.0f - CONTAINER_LENGTH/2, 4.0f - CONTAINER_WIDTH/2, 8.0f + CONTAINER_LENGTH/2, 4.0f + CONTAINER_WIDTH/2, fy, fy + CONTAINER_HEIGHT},
+            // Container 2: {8.5f, 6.5f, rotated=1}
+            {8.5f - CONTAINER_WIDTH/2, 6.5f - CONTAINER_LENGTH/2, 8.5f + CONTAINER_WIDTH/2, 6.5f + CONTAINER_LENGTH/2, fy, fy + CONTAINER_HEIGHT},
+            // Container 3: {-8.0f, 4.0f, rotated=0}
+            {-8.0f - CONTAINER_LENGTH/2, 4.0f - CONTAINER_WIDTH/2, -8.0f + CONTAINER_LENGTH/2, 4.0f + CONTAINER_WIDTH/2, fy, fy + CONTAINER_HEIGHT},
+            // Container 4: {-8.5f, 6.5f, rotated=1}
+            {-8.5f - CONTAINER_WIDTH/2, 6.5f - CONTAINER_LENGTH/2, -8.5f + CONTAINER_WIDTH/2, 6.5f + CONTAINER_LENGTH/2, fy, fy + CONTAINER_HEIGHT},
+            // Container 5: {6.0f, -8.0f, rotated=1}
+            {6.0f - CONTAINER_WIDTH/2, -8.0f - CONTAINER_LENGTH/2, 6.0f + CONTAINER_WIDTH/2, -8.0f + CONTAINER_LENGTH/2, fy, fy + CONTAINER_HEIGHT},
+            // Container 6: {-6.0f, -8.0f, rotated=1}
+            {-6.0f - CONTAINER_WIDTH/2, -8.0f - CONTAINER_LENGTH/2, -6.0f + CONTAINER_WIDTH/2, -8.0f + CONTAINER_LENGTH/2, fy, fy + CONTAINER_HEIGHT},
+            // Container 7: {0.0f, -12.0f, rotated=0}
+            {0.0f - CONTAINER_LENGTH/2, -12.0f - CONTAINER_WIDTH/2, 0.0f + CONTAINER_LENGTH/2, -12.0f + CONTAINER_WIDTH/2, fy, fy + CONTAINER_HEIGHT},
+            // Container 8: {12.0f, 0.0f, rotated=1}
+            {12.0f - CONTAINER_WIDTH/2, 0.0f - CONTAINER_LENGTH/2, 12.0f + CONTAINER_WIDTH/2, 0.0f + CONTAINER_LENGTH/2, fy, fy + CONTAINER_HEIGHT},
+            // Stacked container on top of container 1: {8.0f, 4.0f, rotated=0}
+            {8.0f - CONTAINER_LENGTH/2, 4.0f - CONTAINER_WIDTH/2, 8.0f + CONTAINER_LENGTH/2, 4.0f + CONTAINER_WIDTH/2, fy + CONTAINER_HEIGHT, fy + CONTAINER_HEIGHT * 2},
+            // Sandbag walls (10 positions) - from GeometryBuilder.m
+            // Non-rotated: length along X, thick along Z; Rotated: thick along X, length along Z
+            // Visual height is SANDBAG_HEIGHT (1.2), but rendered as two layers totaling ~1.2 units
+            // Sandbag 1: {5.0f, 4.0f, rotated=0}
+            {5.0f - SANDBAG_LENGTH/2, 4.0f - SANDBAG_THICK/2, 5.0f + SANDBAG_LENGTH/2, 4.0f + SANDBAG_THICK/2, fy, fy + SANDBAG_HEIGHT},
+            // Sandbag 2: {-5.0f, 4.0f, rotated=0}
+            {-5.0f - SANDBAG_LENGTH/2, 4.0f - SANDBAG_THICK/2, -5.0f + SANDBAG_LENGTH/2, 4.0f + SANDBAG_THICK/2, fy, fy + SANDBAG_HEIGHT},
+            // Sandbag 3: {5.0f, -4.0f, rotated=0}
+            {5.0f - SANDBAG_LENGTH/2, -4.0f - SANDBAG_THICK/2, 5.0f + SANDBAG_LENGTH/2, -4.0f + SANDBAG_THICK/2, fy, fy + SANDBAG_HEIGHT},
+            // Sandbag 4: {-5.0f, -4.0f, rotated=0}
+            {-5.0f - SANDBAG_LENGTH/2, -4.0f - SANDBAG_THICK/2, -5.0f + SANDBAG_LENGTH/2, -4.0f + SANDBAG_THICK/2, fy, fy + SANDBAG_HEIGHT},
+            // Sandbag 5: {12.0f, 10.0f, rotated=1}
+            {12.0f - SANDBAG_THICK/2, 10.0f - SANDBAG_LENGTH/2, 12.0f + SANDBAG_THICK/2, 10.0f + SANDBAG_LENGTH/2, fy, fy + SANDBAG_HEIGHT},
+            // Sandbag 6: {-12.0f, 10.0f, rotated=1}
+            {-12.0f - SANDBAG_THICK/2, 10.0f - SANDBAG_LENGTH/2, -12.0f + SANDBAG_THICK/2, 10.0f + SANDBAG_LENGTH/2, fy, fy + SANDBAG_HEIGHT},
+            // Sandbag 7: {12.0f, -10.0f, rotated=1}
+            {12.0f - SANDBAG_THICK/2, -10.0f - SANDBAG_LENGTH/2, 12.0f + SANDBAG_THICK/2, -10.0f + SANDBAG_LENGTH/2, fy, fy + SANDBAG_HEIGHT},
+            // Sandbag 8: {-12.0f, -10.0f, rotated=1}
+            {-12.0f - SANDBAG_THICK/2, -10.0f - SANDBAG_LENGTH/2, -12.0f + SANDBAG_THICK/2, -10.0f + SANDBAG_LENGTH/2, fy, fy + SANDBAG_HEIGHT},
+            // Sandbag 9: {3.0f, 8.0f, rotated=1}
+            {3.0f - SANDBAG_THICK/2, 8.0f - SANDBAG_LENGTH/2, 3.0f + SANDBAG_THICK/2, 8.0f + SANDBAG_LENGTH/2, fy, fy + SANDBAG_HEIGHT},
+            // Sandbag 10: {-3.0f, 8.0f, rotated=1}
+            {-3.0f - SANDBAG_THICK/2, 8.0f - SANDBAG_LENGTH/2, -3.0f + SANDBAG_THICK/2, 8.0f + SANDBAG_LENGTH/2, fy, fy + SANDBAG_HEIGHT},
+            // Arena boundary walls (invisible walls at map edges)
+            {-ARENA_SIZE - 0.5f, -ARENA_SIZE - 0.5f, -ARENA_SIZE, ARENA_SIZE + 0.5f, fy, fy + 10.0f},  // West wall
+            {ARENA_SIZE, -ARENA_SIZE - 0.5f, ARENA_SIZE + 0.5f, ARENA_SIZE + 0.5f, fy, fy + 10.0f},    // East wall
+            {-ARENA_SIZE - 0.5f, -ARENA_SIZE - 0.5f, ARENA_SIZE + 0.5f, -ARENA_SIZE, fy, fy + 10.0f},  // South wall
+            {-ARENA_SIZE - 0.5f, ARENA_SIZE, ARENA_SIZE + 0.5f, ARENA_SIZE + 0.5f, fy, fy + 10.0f},    // North wall
+            // Bunker entrance walls (matching GeometryBuilder.m: entH=1.0f, sw=1.0f half-width)
+            {BUNKER_X - BUNKER_STAIR_WIDTH/2 - 0.4f, BUNKER_Z + BUNKER_DEPTH/2 - 0.4f, BUNKER_X - BUNKER_STAIR_WIDTH/2, BUNKER_Z + BUNKER_DEPTH/2, fy, fy + 1.0f},
+            {BUNKER_X + BUNKER_STAIR_WIDTH/2, BUNKER_Z + BUNKER_DEPTH/2 - 0.4f, BUNKER_X + BUNKER_STAIR_WIDTH/2 + 0.4f, BUNKER_Z + BUNKER_DEPTH/2, fy, fy + 1.0f},
+            // Bunker interior walls (underground, bwt=0.4f from GeometryBuilder.m)
+            // Back wall
+            {BUNKER_X - BUNKER_WIDTH/2 + 0.4f, BUNKER_Z - BUNKER_DEPTH/2 + 0.4f, BUNKER_X + BUNKER_WIDTH/2 - 0.4f, BUNKER_Z - BUNKER_DEPTH/2 + 0.5f, BASEMENT_LEVEL, fy},
+            // Left wall
+            {BUNKER_X - BUNKER_WIDTH/2 + 0.4f, BUNKER_Z - BUNKER_DEPTH/2 + 0.4f, BUNKER_X - BUNKER_WIDTH/2 + 0.5f, BUNKER_Z + BUNKER_DEPTH/2 - 0.4f, BASEMENT_LEVEL, fy},
+            // Right wall
+            {BUNKER_X + BUNKER_WIDTH/2 - 0.5f, BUNKER_Z - BUNKER_DEPTH/2 + 0.4f, BUNKER_X + BUNKER_WIDTH/2 - 0.4f, BUNKER_Z + BUNKER_DEPTH/2 - 0.4f, BASEMENT_LEVEL, fy},
+            // Front wall left of stairs
+            {BUNKER_X - BUNKER_WIDTH/2 + 0.4f, BUNKER_Z + BUNKER_DEPTH/2 - 0.5f, BUNKER_X - BUNKER_STAIR_WIDTH/2, BUNKER_Z + BUNKER_DEPTH/2 - 0.4f, BASEMENT_LEVEL, fy},
+            // Front wall right of stairs
+            {BUNKER_X + BUNKER_STAIR_WIDTH/2, BUNKER_Z + BUNKER_DEPTH/2 - 0.5f, BUNKER_X + BUNKER_WIDTH/2 - 0.4f, BUNKER_Z + BUNKER_DEPTH/2 - 0.4f, BASEMENT_LEVEL, fy},
         };
-        int numWalls = 8;
+        int numWalls = 54;
 
         simd_float3 doorMin, doorMax;
         getDoorAABB(&doorMin, &doorMax);
@@ -310,39 +694,51 @@
     // Update door proximity
     state.playerNearDoor = checkPlayerNearDoor(camPos);
 
-    // Animate door
-    updateDoorAnimation();
+    // Skip all game logic updates when paused
+    if (!state.isPaused) {
+        // Animate door
+        updateDoorAnimation();
 
-    // Gun recoil decay
-    if (_metalView.gunRecoil > 0) {
-        _metalView.gunRecoil *= 0.85f;
-        if (_metalView.gunRecoil < 0.01f) _metalView.gunRecoil = 0;
-    }
-
-    // Fire rate
-    if (_metalView.fireTimer > 0) _metalView.fireTimer--;
-
-    // Handle shooting
-    BOOL shouldFire = _metalView.wantsClick || (_metalView.mouseHeld && _metalView.fireTimer == 0);
-    _metalView.wantsClick = NO;
-
-    if (shouldFire && _metalView.controlsActive && !state.gameOver) {
-        _metalView.fireTimer = PLAYER_FIRE_RATE;
-        _metalView.gunRecoil = 0.6f;
-        CombatHitResult hitResult = processPlayerShooting(camPos, _metalView.camYaw, _metalView.camPitch);
-
-        // In multiplayer, send hit notification if we hit the remote player
-        if (state.isMultiplayer && hitResult.type == HitResultRemotePlayer) {
-            [[MultiplayerController shared] sendHitOnRemotePlayer:PVP_DAMAGE];
+        // Gun recoil decay
+        if (_metalView.gunRecoil > 0) {
+            _metalView.gunRecoil *= 0.85f;
+            if (_metalView.gunRecoil < 0.01f) _metalView.gunRecoil = 0;
         }
+
+        // Fire rate
+        if (_metalView.fireTimer > 0) _metalView.fireTimer--;
+
+        // Handle shooting
+        BOOL shouldFire = _metalView.wantsClick || (_metalView.mouseHeld && _metalView.fireTimer == 0);
+        _metalView.wantsClick = NO;
+
+        if (shouldFire && _metalView.controlsActive && !state.gameOver) {
+            _metalView.fireTimer = PLAYER_FIRE_RATE;
+            _metalView.gunRecoil = 0.6f;
+            CombatHitResult hitResult = processPlayerShooting(camPos, _metalView.camYaw, _metalView.camPitch);
+
+            // In multiplayer, send hit notification if we hit the remote player
+            if (state.isMultiplayer && hitResult.type == HitResultRemotePlayer) {
+                [[MultiplayerController shared] sendHitOnRemotePlayer:PVP_DAMAGE];
+            }
+        }
+
+        // Enemy AI
+        updateEnemyAI(camPos, _metalView.controlsActive);
+
+        // Update pickup system
+        PickupSystem *pickupSystem = [PickupSystem shared];
+        [pickupSystem updatePickups:1.0f];  // 1 frame delta
+
+        // Check for pickup collection
+        if (!state.gameOver) {
+            [pickupSystem checkPlayerPickup:camPos];
+        }
+
+        // Update timers
+        updateCombatTimers();
+        updateHealthRegeneration();
     }
-
-    // Enemy AI
-    updateEnemyAI(camPos, _metalView.controlsActive);
-
-    // Update timers
-    updateCombatTimers();
-    updateHealthRegeneration();
 
     // Build matrices
     CameraBasis camBasis = computeCameraBasis(_metalView.camYaw, _metalView.camPitch);
@@ -374,17 +770,42 @@
     [encoder setVertexBuffer:_bgVertexBuffer offset:0 atIndex:0];
     [encoder drawPrimitives:MTLPrimitiveTypeTriangle vertexStart:0 vertexCount:6];
 
-    // Draw floor
+    // Draw military base floor
     [encoder setRenderPipelineState:_pipelineState];
     [encoder setDepthStencilState:_depthState];
-    [encoder setVertexBuffer:_floorVertexBuffer offset:0 atIndex:0];
+    [encoder setVertexBuffer:_militaryFloorBuffer offset:0 atIndex:0];
     [encoder setVertexBytes:&mvp length:sizeof(mvp) atIndex:1];
-    [encoder drawPrimitives:MTLPrimitiveTypeTriangle vertexStart:0 vertexCount:6];
+    [encoder drawPrimitives:MTLPrimitiveTypeTriangle vertexStart:0 vertexCount:_militaryFloorVertexCount];
 
-    // Draw house
-    [encoder setVertexBuffer:_houseBuffer offset:0 atIndex:0];
+    // Draw command building (central structure)
+    [encoder setVertexBuffer:_commandBuildingBuffer offset:0 atIndex:0];
     [encoder setVertexBytes:&mvp length:sizeof(mvp) atIndex:1];
-    [encoder drawPrimitives:MTLPrimitiveTypeTriangle vertexStart:0 vertexCount:_houseVertexCount];
+    [encoder drawPrimitives:MTLPrimitiveTypeTriangle vertexStart:0 vertexCount:_commandBuildingVertexCount];
+
+    // Draw guard towers (4 corners)
+    [encoder setVertexBuffer:_guardTowerBuffer offset:0 atIndex:0];
+    [encoder setVertexBytes:&mvp length:sizeof(mvp) atIndex:1];
+    [encoder drawPrimitives:MTLPrimitiveTypeTriangle vertexStart:0 vertexCount:_guardTowerVertexCount];
+
+    // Draw catwalks (connecting towers)
+    [encoder setVertexBuffer:_catwalkBuffer offset:0 atIndex:0];
+    [encoder setVertexBytes:&mvp length:sizeof(mvp) atIndex:1];
+    [encoder drawPrimitives:MTLPrimitiveTypeTriangle vertexStart:0 vertexCount:_catwalkVertexCount];
+
+    // Draw underground bunker
+    [encoder setVertexBuffer:_bunkerBuffer offset:0 atIndex:0];
+    [encoder setVertexBytes:&mvp length:sizeof(mvp) atIndex:1];
+    [encoder drawPrimitives:MTLPrimitiveTypeTriangle vertexStart:0 vertexCount:_bunkerVertexCount];
+
+    // Draw cargo containers
+    [encoder setVertexBuffer:_cargoContainersBuffer offset:0 atIndex:0];
+    [encoder setVertexBytes:&mvp length:sizeof(mvp) atIndex:1];
+    [encoder drawPrimitives:MTLPrimitiveTypeTriangle vertexStart:0 vertexCount:_cargoContainersVertexCount];
+
+    // Draw sandbag walls
+    [encoder setVertexBuffer:_sandbagBuffer offset:0 atIndex:0];
+    [encoder setVertexBytes:&mvp length:sizeof(mvp) atIndex:1];
+    [encoder drawPrimitives:MTLPrimitiveTypeTriangle vertexStart:0 vertexCount:_sandbagVertexCount];
 
     // Draw door
     {
@@ -410,6 +831,70 @@
     [encoder drawPrimitives:MTLPrimitiveTypeTriangle vertexStart:0 vertexCount:36];
     [encoder setVertexBuffer:_wall2Buffer offset:0 atIndex:0];
     [encoder drawPrimitives:MTLPrimitiveTypeTriangle vertexStart:0 vertexCount:36];
+
+    // Draw pickups
+    {
+        int pickupCount = [[PickupSystem shared] getPickupCount];
+        for (int p = 0; p < pickupCount; p++) {
+            Pickup *pickup = [[PickupSystem shared] getPickup:p];
+            if (!pickup || !pickup->isActive) continue;
+
+            // Calculate pickup position with bob offset
+            float px = pickup->x;
+            float py = pickup->y + pickup->bobOffset;
+            float pz = pickup->z;
+            float angle = pickup->rotationAngle;
+
+            // Create rotation and translation matrix
+            float cosA = cosf(angle);
+            float sinA = sinf(angle);
+            float scale = 1.0f;
+
+            simd_float4x4 pickupRot = {{
+                {cosA * scale, 0, -sinA * scale, 0},
+                {0, scale, 0, 0},
+                {sinA * scale, 0, cosA * scale, 0},
+                {0, 0, 0, 1}
+            }};
+            simd_float4x4 pickupTrans = {{
+                {1, 0, 0, 0}, {0, 1, 0, 0}, {0, 0, 1, 0}, {px, py, pz, 1}
+            }};
+            simd_float4x4 pickupModel = simd_mul(pickupTrans, pickupRot);
+            simd_float4x4 pickupMvp = simd_mul(proj, simd_mul(viewMat, pickupModel));
+
+            // Select the appropriate buffer based on pickup type
+            id<MTLBuffer> pickupBuffer = nil;
+            NSUInteger vertexCount = 0;
+
+            switch (pickup->type) {
+                case PickupTypeHealthPack:
+                    pickupBuffer = _healthPackBuffer;
+                    vertexCount = _healthPackVertexCount;
+                    break;
+                case PickupTypeAmmoSmall:
+                case PickupTypeAmmoHeavy:
+                    pickupBuffer = _ammoBoxBuffer;
+                    vertexCount = _ammoBoxVertexCount;
+                    break;
+                case PickupTypeShotgun:
+                case PickupTypeAssaultRifle:
+                case PickupTypeRocketLauncher:
+                    pickupBuffer = _weaponPickupBuffer;
+                    vertexCount = _weaponPickupVertexCount;
+                    break;
+                case PickupTypeArmor:
+                    pickupBuffer = _armorBuffer;
+                    vertexCount = _armorVertexCount;
+                    break;
+            }
+
+            if (pickupBuffer && vertexCount > 0) {
+                [encoder setVertexBuffer:pickupBuffer offset:0 atIndex:0];
+                [encoder setVertexBytes:&pickupMvp length:sizeof(pickupMvp) atIndex:1];
+                [encoder drawPrimitives:MTLPrimitiveTypeTriangle vertexStart:0 vertexCount:vertexCount];
+            }
+        }
+    }
 
     // Draw enemies
     BOOL *enemyAlive = state.enemyAlive;
@@ -679,6 +1164,34 @@
     [encoder setVertexBuffer:_playerHpFgBuffer offset:0 atIndex:0];
     [encoder setVertexBytes:&hpScale length:sizeof(hpScale) atIndex:1];
     [encoder drawPrimitives:MTLPrimitiveTypeTriangle vertexStart:0 vertexCount:6];
+
+    // Draw armor bar (below health bar)
+    if (state.playerArmor > 0) {
+        // Armor bar background (blue-gray)
+        simd_float3 armorBgCol = {0.1f, 0.15f, 0.3f};
+        float armorY = 0.78f;  // Below health bar
+        Vertex armorBg[] = {
+            {{-0.3f, armorY, 0}, armorBgCol}, {{0.3f, armorY, 0}, armorBgCol}, {{0.3f, armorY + 0.05f, 0}, armorBgCol},
+            {{-0.3f, armorY, 0}, armorBgCol}, {{0.3f, armorY + 0.05f, 0}, armorBgCol}, {{-0.3f, armorY + 0.05f, 0}, armorBgCol},
+        };
+        id<MTLBuffer> armorBgBuf = [_device newBufferWithBytes:armorBg length:sizeof(armorBg) options:MTLResourceStorageModeShared];
+        [encoder setVertexBuffer:armorBgBuf offset:0 atIndex:0];
+        [encoder setVertexBytes:&IDENTITY_MATRIX length:sizeof(IDENTITY_MATRIX) atIndex:1];
+        [encoder drawPrimitives:MTLPrimitiveTypeTriangle vertexStart:0 vertexCount:6];
+
+        // Armor bar foreground (blue)
+        simd_float3 armorFgCol = {0.2f, 0.5f, 1.0f};
+        float armorPct = (float)state.playerArmor / 100.0f;  // MAX_ARMOR = 100
+        Vertex armorFg[] = {
+            {{-0.29f, armorY + 0.01f, 0}, armorFgCol}, {{-0.29f + 0.58f * armorPct, armorY + 0.01f, 0}, armorFgCol},
+            {{-0.29f + 0.58f * armorPct, armorY + 0.04f, 0}, armorFgCol},
+            {{-0.29f, armorY + 0.01f, 0}, armorFgCol}, {{-0.29f + 0.58f * armorPct, armorY + 0.04f, 0}, armorFgCol},
+            {{-0.29f, armorY + 0.04f, 0}, armorFgCol},
+        };
+        id<MTLBuffer> armorFgBuf = [_device newBufferWithBytes:armorFg length:sizeof(armorFg) options:MTLResourceStorageModeShared];
+        [encoder setVertexBuffer:armorFgBuf offset:0 atIndex:0];
+        [encoder drawPrimitives:MTLPrimitiveTypeTriangle vertexStart:0 vertexCount:6];
+    }
 
     // Draw crosshair
     if (!state.gameOver && !_metalView.escapedLock) {
@@ -1270,6 +1783,50 @@
             [encoder setVertexBytes:&IDENTITY_MATRIX length:sizeof(IDENTITY_MATRIX) atIndex:1];
             [encoder drawPrimitives:MTLPrimitiveTypeTriangle vertexStart:0 vertexCount:12];
         }
+    }
+
+    // Draw spawn protection shield effect (pulsing blue tint on screen edges)
+    if (state.spawnProtectionTimer > 0) {
+        // Pulsing effect - oscillates between 0.3 and 0.7 alpha based on timer
+        float pulse = 0.3f + 0.4f * (0.5f + 0.5f * sinf((float)state.spawnProtectionTimer * 0.15f));
+        // Fade out effect as timer gets low (last 60 frames = 1 second)
+        if (state.spawnProtectionTimer < 60) {
+            pulse *= (float)state.spawnProtectionTimer / 60.0f;
+        }
+
+        // Blue-cyan shield colors
+        simd_float3 shieldDark = {0.0f, 0.2f * pulse, 0.4f * pulse};
+        simd_float3 shieldMid = {0.1f * pulse, 0.4f * pulse, 0.7f * pulse};
+        simd_float3 shieldLight = {0.2f * pulse, 0.6f * pulse, 1.0f * pulse};
+        float s = 0.12f;  // Width of shield edge effect
+
+        Vertex shieldVerts[] = {
+            // Top edge
+            {{-1.0f, 1.0f, 0}, shieldLight}, {{1.0f, 1.0f, 0}, shieldLight}, {{-1.0f, 1.0f - s, 0}, shieldDark},
+            {{1.0f, 1.0f, 0}, shieldLight}, {{1.0f, 1.0f - s, 0}, shieldDark}, {{-1.0f, 1.0f - s, 0}, shieldDark},
+            // Bottom edge
+            {{-1.0f, -1.0f + s, 0}, shieldDark}, {{1.0f, -1.0f + s, 0}, shieldDark}, {{-1.0f, -1.0f, 0}, shieldLight},
+            {{1.0f, -1.0f + s, 0}, shieldDark}, {{1.0f, -1.0f, 0}, shieldLight}, {{-1.0f, -1.0f, 0}, shieldLight},
+            // Left edge
+            {{-1.0f, 1.0f - s, 0}, shieldMid}, {{-1.0f + s, 1.0f - s, 0}, shieldDark}, {{-1.0f, -1.0f + s, 0}, shieldMid},
+            {{-1.0f + s, 1.0f - s, 0}, shieldDark}, {{-1.0f + s, -1.0f + s, 0}, shieldDark}, {{-1.0f, -1.0f + s, 0}, shieldMid},
+            // Right edge
+            {{1.0f - s, 1.0f - s, 0}, shieldDark}, {{1.0f, 1.0f - s, 0}, shieldMid}, {{1.0f - s, -1.0f + s, 0}, shieldDark},
+            {{1.0f, 1.0f - s, 0}, shieldMid}, {{1.0f, -1.0f + s, 0}, shieldMid}, {{1.0f - s, -1.0f + s, 0}, shieldDark},
+            // Corner accents (top-left)
+            {{-1.0f, 1.0f, 0}, shieldLight}, {{-1.0f + s*1.5f, 1.0f, 0}, shieldMid}, {{-1.0f, 1.0f - s*1.5f, 0}, shieldMid},
+            // Corner accents (top-right)
+            {{1.0f - s*1.5f, 1.0f, 0}, shieldMid}, {{1.0f, 1.0f, 0}, shieldLight}, {{1.0f, 1.0f - s*1.5f, 0}, shieldMid},
+            // Corner accents (bottom-left)
+            {{-1.0f, -1.0f + s*1.5f, 0}, shieldMid}, {{-1.0f + s*1.5f, -1.0f, 0}, shieldMid}, {{-1.0f, -1.0f, 0}, shieldLight},
+            // Corner accents (bottom-right)
+            {{1.0f, -1.0f + s*1.5f, 0}, shieldMid}, {{1.0f, -1.0f, 0}, shieldLight}, {{1.0f - s*1.5f, -1.0f, 0}, shieldMid},
+        };
+
+        id<MTLBuffer> shieldBuf = [_device newBufferWithBytes:shieldVerts length:sizeof(shieldVerts) options:MTLResourceStorageModeShared];
+        [encoder setVertexBuffer:shieldBuf offset:0 atIndex:0];
+        [encoder setVertexBytes:&IDENTITY_MATRIX length:sizeof(IDENTITY_MATRIX) atIndex:1];
+        [encoder drawPrimitives:MTLPrimitiveTypeTriangle vertexStart:0 vertexCount:36];
     }
 
     // Draw blood splatter

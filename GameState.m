@@ -1,5 +1,6 @@
 // GameState.m - Global game state singleton implementation
 #import "GameState.h"
+#import "WeaponSystem.h"
 
 @implementation GameState {
     // Single-player enemy arrays
@@ -26,30 +27,58 @@
 - (instancetype)init {
     self = [super init];
     if (self) {
-        // Initialize spawn points (corners of the arena with appropriate facing directions)
+        // Initialize spawn points in SAFE locations with cover nearby
+        // All spawns face toward center of map where action is
+
+        // Spawn 0: Inside command building (protected by walls on 3 sides)
+        // Position near back wall, facing the door
         _spawnPointsStorage[0] = (SpawnPoint){
-            .x = -ARENA_SIZE + 2.0f,
+            .x = CMD_BUILDING_X,
             .y = FLOOR_Y + PLAYER_HEIGHT,
-            .z = -ARENA_SIZE + 2.0f,
-            .yaw = M_PI * 0.25f  // Face toward center (northeast)
+            .z = CMD_BUILDING_Z - (CMD_BUILDING_DEPTH / 2.0f) + 1.5f,  // Near back wall
+            .yaw = 0.0f  // Face south toward door/exit
         };
+
+        // Spawn 1: Inside bunker (underground, fully protected)
+        // Position in center of bunker room
         _spawnPointsStorage[1] = (SpawnPoint){
-            .x = ARENA_SIZE - 2.0f,
+            .x = BUNKER_X,
+            .y = BASEMENT_LEVEL + PLAYER_HEIGHT,  // Underground level
+            .z = BUNKER_Z,
+            .yaw = M_PI * 0.5f  // Face east toward stairs/exit
+        };
+
+        // Spawn 2: Behind cargo containers (east side, has cover nearby)
+        // Position behind container cluster
+        _spawnPointsStorage[2] = (SpawnPoint){
+            .x = 12.0f,  // Behind containers on east side
             .y = FLOOR_Y + PLAYER_HEIGHT,
-            .z = -ARENA_SIZE + 2.0f,
+            .z = -6.0f,
             .yaw = M_PI * 0.75f  // Face toward center (northwest)
         };
-        _spawnPointsStorage[2] = (SpawnPoint){
-            .x = ARENA_SIZE - 2.0f,
-            .y = FLOOR_Y + PLAYER_HEIGHT,
-            .z = ARENA_SIZE - 2.0f,
+
+        // Spawn 3: On northeast guard tower platform (elevated, railings for cover)
+        _spawnPointsStorage[3] = (SpawnPoint){
+            .x = TOWER_OFFSET,
+            .y = PLATFORM_LEVEL + PLAYER_HEIGHT,  // On tower platform
+            .z = TOWER_OFFSET,
             .yaw = M_PI * 1.25f  // Face toward center (southwest)
         };
-        _spawnPointsStorage[3] = (SpawnPoint){
-            .x = -ARENA_SIZE + 2.0f,
+
+        // Spawn 4: Behind sandbag wall near west side (good cover position)
+        _spawnPointsStorage[4] = (SpawnPoint){
+            .x = -12.0f,  // West side behind sandbags
             .y = FLOOR_Y + PLAYER_HEIGHT,
-            .z = ARENA_SIZE - 2.0f,
-            .yaw = M_PI * 1.75f  // Face toward center (southeast)
+            .z = 0.0f,
+            .yaw = 0.0f  // Face east toward center
+        };
+
+        // Spawn 5: On southwest guard tower platform (elevated, opposite corner from spawn 3)
+        _spawnPointsStorage[5] = (SpawnPoint){
+            .x = -TOWER_OFFSET,
+            .y = PLATFORM_LEVEL + PLAYER_HEIGHT,  // On tower platform
+            .z = -TOWER_OFFSET,
+            .yaw = M_PI * 0.25f  // Face toward center (northeast)
         };
 
         // Set default kill limit
@@ -71,15 +100,36 @@
 // Accessor for spawn points
 - (SpawnPoint *)spawnPoints { return _spawnPointsStorage; }
 
+// Weapon system accessors (delegate to WeaponSystem singleton)
+- (WeaponType)currentWeaponType {
+    return [[WeaponSystem shared] getCurrentWeapon];
+}
+
+- (BOOL)isWeaponReloading {
+    return [[WeaponSystem shared] isReloading];
+}
+
 - (void)resetGame {
     // Player state
     _playerHealth = PLAYER_MAX_HEALTH;
+    _playerArmor = 0;
     _gameOver = NO;
+    _isPaused = NO;
     _bloodLevel = 0.0f;
     _bloodFlashTimer = 0;
     _damageCooldownTimer = 0;
     _regenTickTimer = 0;
     _footstepTimer = 0;
+    _spawnProtectionTimer = SPAWN_PROTECTION_TIME;  // 3 seconds of spawn protection
+
+    // Weapon ownership (start with pistol only)
+    _hasWeaponShotgun = NO;
+    _hasWeaponAssaultRifle = NO;
+    _hasWeaponRocketLauncher = NO;
+
+    // Ammo counts
+    _ammoSmall = 50;    // Starting pistol/rifle ammo
+    _ammoHeavy = 0;     // No heavy ammo to start
 
     // Door state
     _doorOpen = NO;
@@ -101,6 +151,9 @@
     _enemyMuzzleFlashTimer = 0;
     _enemyMuzzlePos = (simd_float3){0, 0, 0};
     _lastFiringEnemy = -1;
+
+    // Reset weapon system
+    [[WeaponSystem shared] resetWeapons];
 
     // Reset multiplayer state to single-player defaults
     _isMultiplayer = NO;
@@ -135,6 +188,7 @@
     _isMultiplayer = YES;
     _isConnected = NO;  // Will be set to YES when connection established
     _gameOver = NO;
+    _isPaused = NO;
     _gameWon = NO;
     _winnerId = -1;
 
@@ -144,11 +198,20 @@
 
     // Reset local player state
     _playerHealth = PLAYER_MAX_HEALTH;
+    _playerArmor = 0;
     _bloodLevel = 0.0f;
     _bloodFlashTimer = 0;
     _damageCooldownTimer = 0;
     _regenTickTimer = 0;
     _localRespawnTimer = 0;
+    _spawnProtectionTimer = SPAWN_PROTECTION_TIME;  // 3 seconds of spawn protection
+
+    // Reset weapon ownership
+    _hasWeaponShotgun = NO;
+    _hasWeaponAssaultRifle = NO;
+    _hasWeaponRocketLauncher = NO;
+    _ammoSmall = 50;
+    _ammoHeavy = 0;
 
     // Reset remote player state
     _remotePlayerHealth = PLAYER_MAX_HEALTH;
@@ -233,10 +296,37 @@
                   velocityX:(float *)velocityX velocityY:(float *)velocityY velocityZ:(float *)velocityZ
                    onGround:(BOOL *)onGround {
 
+    // Reset spawn protection timer
+    _spawnProtectionTimer = SPAWN_PROTECTION_TIME;
+
     if (_isMultiplayer) {
-        // In multiplayer, use spawn points
-        // Determine which spawn point to use based on host status
-        int spawnIndex = _isHost ? 0 : 2;
+        // In multiplayer, randomly select from available spawn points
+        // but avoid spawning too close to remote player
+        int bestSpawn = 0;
+        float bestDistance = 0.0f;
+
+        for (int i = 0; i < NUM_SPAWN_POINTS; i++) {
+            SpawnPoint *spawn = [self getSpawnPoint:i];
+            if (spawn) {
+                float dx = spawn->x - _remotePlayerPosX;
+                float dz = spawn->z - _remotePlayerPosZ;
+                float dist = sqrtf(dx * dx + dz * dz);
+
+                // Prefer spawn points far from remote player
+                if (dist > bestDistance) {
+                    bestDistance = dist;
+                    bestSpawn = i;
+                }
+            }
+        }
+
+        // Add some randomness - pick from top 3 furthest spawns
+        int spawnIndex = bestSpawn;
+        if (arc4random_uniform(3) > 0) {
+            // Sometimes pick a random spawn instead of the furthest
+            spawnIndex = arc4random_uniform(NUM_SPAWN_POINTS);
+        }
+
         SpawnPoint *spawn = [self getSpawnPoint:spawnIndex];
 
         if (spawn) {
@@ -252,11 +342,22 @@
             *camYaw = M_PI;
         }
     } else {
-        // Single-player: use original spawn position
-        *posX = PLAYER_START_X;
-        *posY = FLOOR_Y + PLAYER_HEIGHT;
-        *posZ = PLAYER_START_Z;
-        *camYaw = M_PI;
+        // Single-player: randomly select from safe spawn points
+        int spawnIndex = arc4random_uniform(NUM_SPAWN_POINTS);
+        SpawnPoint *spawn = [self getSpawnPoint:spawnIndex];
+
+        if (spawn) {
+            *posX = spawn->x;
+            *posY = spawn->y;
+            *posZ = spawn->z;
+            *camYaw = spawn->yaw;
+        } else {
+            // Fallback to spawn 0 (inside command building)
+            *posX = CMD_BUILDING_X;
+            *posY = FLOOR_Y + PLAYER_HEIGHT;
+            *posZ = CMD_BUILDING_Z - (CMD_BUILDING_DEPTH / 2.0f) + 1.5f;
+            *camYaw = 0.0f;
+        }
     }
 
     *camPitch = 0.0f;

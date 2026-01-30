@@ -14,11 +14,13 @@
 @property (nonatomic, strong, readonly) NSSound *enemyGunSound;
 @property (nonatomic, strong, readonly) NSSound *doorSound;
 @property (nonatomic, strong, readonly) NSSound *footstepSound;
+@property (nonatomic, strong, readonly) NSSound *pickupSound;
 
 - (void)playGunSound;
 - (void)playEnemyGunSoundWithVolume:(float)volume;
 - (void)playDoorSound;
 - (void)playFootstepSound;
+- (void)playPickupSound;
 
 @end
 

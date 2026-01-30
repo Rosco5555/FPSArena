@@ -22,8 +22,9 @@ Compile the game with:
 clang -fobjc-arc \
   -framework Cocoa -framework Metal -framework MetalKit -framework AVFoundation \
   GameMath.c Collision.c GameState.m SoundManager.m DoorSystem.m \
-  Enemy.m Combat.m GeometryBuilder.m NetworkManager.m MultiplayerController.m \
-  LobbyView.m Renderer.m InputView.m AppDelegate.m main.m \
+  WeaponSystem.m PickupSystem.m Enemy.m Combat.m GeometryBuilder.m \
+  NetworkManager.m MultiplayerController.m LobbyView.m Renderer.m \
+  InputView.m AppDelegate.m main.m \
   -o FPSGame
 ```
 
@@ -42,8 +43,21 @@ clang -fobjc-arc \
 | Left Click | Shoot |
 | Space | Jump |
 | E | Open/close doors |
-| R | Restart (when dead in single player) |
+| R | Reload weapon (when alive) / Restart (when dead) |
+| 1 | Switch to Pistol |
+| 2 | Switch to Shotgun |
+| 3 | Switch to Assault Rifle |
+| 4 | Switch to Rocket Launcher |
 | Escape | Pause / Release mouse |
+
+## Weapons
+
+| Weapon | Damage | Fire Rate | Notes |
+|--------|--------|-----------|-------|
+| Pistol | 15 | Medium | Unlimited ammo, default weapon |
+| Shotgun | 12x8 | Slow | 8 pellets with spread, 8 shells |
+| Assault Rifle | 20 | Fast | 30 round magazine, 90 reserve |
+| Rocket Launcher | 100 | Very Slow | Splash damage (50), 4 rockets |
 
 ## Multiplayer
 
@@ -63,11 +77,12 @@ clang -fobjc-arc \
 The game is built with a modular architecture:
 
 - `GameState` - Singleton holding all mutable game state
+- `WeaponSystem` - Multi-weapon system with ammo, reload, and spread
 - `NetworkManager` - UDP/TCP networking for multiplayer
 - `MultiplayerController` - Coordinates networking and game state
 - `LobbyView` - Lobby UI for hosting/joining games
 - `Renderer` - Metal-based rendering
-- `Combat` - Shooting and damage system
+- `Combat` - Shooting and damage system (uses WeaponSystem)
 - `Enemy` - AI behavior for single player
 
 ## License

@@ -5,11 +5,15 @@
 #import <Foundation/Foundation.h>
 #import "GameConfig.h"
 #import "GameTypes.h"
+#import "WeaponSystem.h"
 
 // Multiplayer constants
 static const int RESPAWN_DELAY = 180;  // 3 seconds at 60fps
 static const int DEFAULT_KILL_LIMIT = 10;
-static const int NUM_SPAWN_POINTS = 4;
+static const int NUM_SPAWN_POINTS = 6;
+
+// Spawn protection constants
+static const int SPAWN_PROTECTION_TIME = 180;  // 3 seconds at 60fps
 
 // Spawn point structure
 typedef struct {
@@ -25,12 +29,24 @@ typedef struct {
 
 // Player state (local player in multiplayer)
 @property (nonatomic) int playerHealth;
+@property (nonatomic) int playerArmor;           // Armor points (reduces damage by 50%)
 @property (nonatomic) BOOL gameOver;
+@property (nonatomic) BOOL isPaused;
 @property (nonatomic) float bloodLevel;
 @property (nonatomic) int bloodFlashTimer;
 @property (nonatomic) int damageCooldownTimer;
 @property (nonatomic) int regenTickTimer;
 @property (nonatomic) int footstepTimer;
+@property (nonatomic) int spawnProtectionTimer;  // Counts down in frames, player invulnerable when > 0
+
+// Weapon ownership flags (for pickups)
+@property (nonatomic) BOOL hasWeaponShotgun;
+@property (nonatomic) BOOL hasWeaponAssaultRifle;
+@property (nonatomic) BOOL hasWeaponRocketLauncher;
+
+// Ammo counts (legacy - WeaponSystem uses its own)
+@property (nonatomic) int ammoSmall;              // Pistol/rifle ammo
+@property (nonatomic) int ammoHeavy;              // Shotgun/rocket ammo
 
 // Door state
 @property (nonatomic) BOOL doorOpen;
@@ -50,6 +66,10 @@ typedef struct {
 @property (nonatomic) int enemyMuzzleFlashTimer;
 @property (nonatomic) simd_float3 enemyMuzzlePos;
 @property (nonatomic) int lastFiringEnemy;
+
+// Weapon system state (reference to singleton's state)
+@property (nonatomic, readonly) WeaponType currentWeaponType;
+@property (nonatomic, readonly) BOOL isWeaponReloading;
 
 // ============================================
 // MULTIPLAYER STATE

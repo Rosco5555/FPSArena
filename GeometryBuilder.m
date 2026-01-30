@@ -54,72 +54,554 @@
 
 @implementation GeometryBuilder
 
-+ (id<MTLBuffer>)createHouseBufferWithDevice:(id<MTLDevice>)device vertexCount:(NSUInteger *)count {
-    #define MAX_HOUSE_VERTS 2000
-    Vertex houseVerts[MAX_HOUSE_VERTS];
-    int hv = 0;
+// ============================================
+// MILITARY BASE MAP GEOMETRY
+// ============================================
 
-    simd_float3 wallExt = {0.45f, 0.30f, 0.18f};
-    simd_float3 wallInt = {0.55f, 0.45f, 0.35f};
-    simd_float3 wallSide = {0.40f, 0.28f, 0.15f};
-    simd_float3 wallTop = {0.35f, 0.25f, 0.12f};
++ (id<MTLBuffer>)createCommandBuildingBufferWithDevice:(id<MTLDevice>)device vertexCount:(NSUInteger *)count {
+    #define MAX_CMD_VERTS 5000
+    Vertex verts[MAX_CMD_VERTS];
+    int v = 0;
 
-    float hx = HOUSE_X;
-    float hz = HOUSE_Z;
-    float hw = HOUSE_WIDTH / 2.0f;
-    float hd = HOUSE_DEPTH / 2.0f;
+    // Colors - concrete gray theme
+    simd_float3 wallExt = {0.45f, 0.45f, 0.48f};
+    simd_float3 wallInt = {0.55f, 0.55f, 0.58f};
+    simd_float3 wallDark = {0.35f, 0.35f, 0.38f};
+    simd_float3 wallTop = {0.50f, 0.50f, 0.53f};
+    simd_float3 roofTop = {0.40f, 0.42f, 0.45f};
+    simd_float3 floorCol = {0.38f, 0.40f, 0.42f};
+    simd_float3 windowFrame = {0.25f, 0.25f, 0.28f};
+    simd_float3 stairCol = {0.42f, 0.44f, 0.46f};
+
+    float cx = CMD_BUILDING_X;
+    float cz = CMD_BUILDING_Z;
+    float hw = CMD_BUILDING_WIDTH / 2.0f;
+    float hd = CMD_BUILDING_DEPTH / 2.0f;
     float fy = FLOOR_Y;
-    float wh = HOUSE_WALL_HEIGHT;
-    float wt = HOUSE_WALL_THICK;
-    float dw = DOOR_WIDTH / 2.0f;
-    float doorH = DOOR_HEIGHT;
+    float wh = CMD_BUILDING_HEIGHT;
+    float wt = CMD_WALL_THICK;
+    float dw = CMD_DOOR_WIDTH / 2.0f;
+    float doorH = CMD_DOOR_HEIGHT;
+    float floorMid = fy + wh / 2.0f;
 
     // Back wall
-    float bz = hz - hd;
-    QUAD(houseVerts, hv, hx-hw, fy, bz, hx+hw, fy, bz, hx+hw, fy+wh, bz, hx-hw, fy+wh, bz, wallInt);
-    QUAD(houseVerts, hv, hx+hw, fy, bz-wt, hx-hw, fy, bz-wt, hx-hw, fy+wh, bz-wt, hx+hw, fy+wh, bz-wt, wallExt);
+    float bz = cz - hd;
+    QUAD(verts, v, cx-hw, fy, bz, cx+hw, fy, bz, cx+hw, fy+wh, bz, cx-hw, fy+wh, bz, wallInt);
+    QUAD(verts, v, cx+hw, fy, bz-wt, cx-hw, fy, bz-wt, cx-hw, fy+wh, bz-wt, cx+hw, fy+wh, bz-wt, wallExt);
 
     // Left wall
-    float lx = hx - hw;
-    QUAD(houseVerts, hv, lx, fy, hz+hd, lx, fy, hz-hd, lx, fy+wh, hz-hd, lx, fy+wh, hz+hd, wallInt);
-    QUAD(houseVerts, hv, lx-wt, fy, hz-hd, lx-wt, fy, hz+hd, lx-wt, fy+wh, hz+hd, lx-wt, fy+wh, hz-hd, wallExt);
+    float lx = cx - hw;
+    QUAD(verts, v, lx, fy, cz+hd, lx, fy, cz-hd, lx, fy+wh, cz-hd, lx, fy+wh, cz+hd, wallInt);
+    QUAD(verts, v, lx-wt, fy, cz-hd, lx-wt, fy, cz+hd, lx-wt, fy+wh, cz+hd, lx-wt, fy+wh, cz-hd, wallExt);
 
     // Right wall
-    float rx = hx + hw;
-    QUAD(houseVerts, hv, rx, fy, hz-hd, rx, fy, hz+hd, rx, fy+wh, hz+hd, rx, fy+wh, hz-hd, wallInt);
-    QUAD(houseVerts, hv, rx+wt, fy, hz+hd, rx+wt, fy, hz-hd, rx+wt, fy+wh, hz-hd, rx+wt, fy+wh, hz+hd, wallExt);
+    float rx = cx + hw;
+    QUAD(verts, v, rx, fy, cz-hd, rx, fy, cz+hd, rx, fy+wh, cz+hd, rx, fy+wh, cz-hd, wallInt);
+    QUAD(verts, v, rx+wt, fy, cz+hd, rx+wt, fy, cz-hd, rx+wt, fy+wh, cz-hd, rx+wt, fy+wh, cz+hd, wallExt);
 
-    // Front wall with door opening
-    float fz = hz + hd;
-    QUAD(houseVerts, hv, hx-hw, fy, fz+wt, hx-dw, fy, fz+wt, hx-dw, fy+wh, fz+wt, hx-hw, fy+wh, fz+wt, wallExt);
-    QUAD(houseVerts, hv, hx-dw, fy, fz, hx-hw, fy, fz, hx-hw, fy+wh, fz, hx-dw, fy+wh, fz, wallInt);
-    QUAD(houseVerts, hv, hx+dw, fy, fz+wt, hx+hw, fy, fz+wt, hx+hw, fy+wh, fz+wt, hx+dw, fy+wh, fz+wt, wallExt);
-    QUAD(houseVerts, hv, hx+hw, fy, fz, hx+dw, fy, fz, hx+dw, fy+wh, fz, hx+hw, fy+wh, fz, wallInt);
-    QUAD(houseVerts, hv, hx-dw, fy+doorH, fz+wt, hx+dw, fy+doorH, fz+wt, hx+dw, fy+wh, fz+wt, hx-dw, fy+wh, fz+wt, wallExt);
-    QUAD(houseVerts, hv, hx+dw, fy+doorH, fz, hx-dw, fy+doorH, fz, hx-dw, fy+wh, fz, hx+dw, fy+wh, fz, wallInt);
+    // Front wall with door
+    float fz = cz + hd;
+    QUAD(verts, v, cx-hw, fy, fz+wt, cx-dw, fy, fz+wt, cx-dw, fy+wh, fz+wt, cx-hw, fy+wh, fz+wt, wallExt);
+    QUAD(verts, v, cx-dw, fy, fz, cx-hw, fy, fz, cx-hw, fy+wh, fz, cx-dw, fy+wh, fz, wallInt);
+    QUAD(verts, v, cx+dw, fy, fz+wt, cx+hw, fy, fz+wt, cx+hw, fy+wh, fz+wt, cx+dw, fy+wh, fz+wt, wallExt);
+    QUAD(verts, v, cx+hw, fy, fz, cx+dw, fy, fz, cx+dw, fy+wh, fz, cx+hw, fy+wh, fz, wallInt);
+    QUAD(verts, v, cx-dw, fy+doorH, fz+wt, cx+dw, fy+doorH, fz+wt, cx+dw, fy+wh, fz+wt, cx-dw, fy+wh, fz+wt, wallExt);
+    QUAD(verts, v, cx+dw, fy+doorH, fz, cx-dw, fy+doorH, fz, cx-dw, fy+wh, fz, cx+dw, fy+wh, fz, wallInt);
 
-    // Door frame sides
-    QUAD(houseVerts, hv, hx-dw, fy, fz, hx-dw, fy, fz+wt, hx-dw, fy+doorH, fz+wt, hx-dw, fy+doorH, fz, wallSide);
-    QUAD(houseVerts, hv, hx+dw, fy, fz+wt, hx+dw, fy, fz, hx+dw, fy+doorH, fz, hx+dw, fy+doorH, fz+wt, wallSide);
-    QUAD(houseVerts, hv, hx-dw, fy+doorH, fz, hx+dw, fy+doorH, fz, hx+dw, fy+doorH, fz+wt, hx-dw, fy+doorH, fz+wt, wallTop);
+    // Door frame
+    QUAD(verts, v, cx-dw, fy, fz, cx-dw, fy, fz+wt, cx-dw, fy+doorH, fz+wt, cx-dw, fy+doorH, fz, windowFrame);
+    QUAD(verts, v, cx+dw, fy, fz+wt, cx+dw, fy, fz, cx+dw, fy+doorH, fz, cx+dw, fy+doorH, fz+wt, windowFrame);
+    QUAD(verts, v, cx-dw, fy+doorH, fz, cx+dw, fy+doorH, fz, cx+dw, fy+doorH, fz+wt, cx-dw, fy+doorH, fz+wt, windowFrame);
 
     // Wall tops
-    QUAD(houseVerts, hv, hx-hw, fy+wh, bz-wt, hx+hw, fy+wh, bz-wt, hx+hw, fy+wh, bz, hx-hw, fy+wh, bz, wallTop);
-    QUAD(houseVerts, hv, lx-wt, fy+wh, hz-hd, lx-wt, fy+wh, hz+hd, lx, fy+wh, hz+hd, lx, fy+wh, hz-hd, wallTop);
-    QUAD(houseVerts, hv, rx, fy+wh, hz-hd, rx, fy+wh, hz+hd, rx+wt, fy+wh, hz+hd, rx+wt, fy+wh, hz-hd, wallTop);
-    QUAD(houseVerts, hv, hx-hw, fy+wh, fz, hx+hw, fy+wh, fz, hx+hw, fy+wh, fz+wt, hx-hw, fy+wh, fz+wt, wallTop);
+    QUAD(verts, v, cx-hw-wt, fy+wh, bz-wt, cx+hw+wt, fy+wh, bz-wt, cx+hw+wt, fy+wh, bz, cx-hw-wt, fy+wh, bz, wallTop);
+    QUAD(verts, v, lx-wt, fy+wh, cz-hd, lx-wt, fy+wh, cz+hd, lx, fy+wh, cz+hd, lx, fy+wh, cz-hd, wallTop);
+    QUAD(verts, v, rx, fy+wh, cz-hd, rx, fy+wh, cz+hd, rx+wt, fy+wh, cz+hd, rx+wt, fy+wh, cz-hd, wallTop);
+    QUAD(verts, v, cx-hw-wt, fy+wh, fz, cx+hw+wt, fy+wh, fz, cx+hw+wt, fy+wh, fz+wt, cx-hw-wt, fy+wh, fz+wt, wallTop);
+
+    // Second floor
+    float floorY = floorMid;
+    float floorT = 0.2f;
+    float stairHoleW = 2.0f;
+    float stairHoleD = 2.0f;
+
+    QUAD(verts, v, cx-hw+wt, floorY, cz+hd-wt, cx+hw-wt, floorY, cz+hd-wt,
+         cx+hw-wt, floorY, cz+stairHoleD/2, cx-hw+wt, floorY, cz+stairHoleD/2, floorCol);
+    QUAD(verts, v, cx-hw+wt, floorY, cz-stairHoleD/2, cx+hw-wt, floorY, cz-stairHoleD/2,
+         cx+hw-wt, floorY, cz-hd+wt, cx-hw+wt, floorY, cz-hd+wt, floorCol);
+    QUAD(verts, v, cx-hw+wt, floorY, cz+stairHoleD/2, cx-stairHoleW/2, floorY, cz+stairHoleD/2,
+         cx-stairHoleW/2, floorY, cz-stairHoleD/2, cx-hw+wt, floorY, cz-stairHoleD/2, floorCol);
+    QUAD(verts, v, cx+stairHoleW/2, floorY, cz+stairHoleD/2, cx+hw-wt, floorY, cz+stairHoleD/2,
+         cx+hw-wt, floorY, cz-stairHoleD/2, cx+stairHoleW/2, floorY, cz-stairHoleD/2, floorCol);
+    QUAD(verts, v, cx-hw+wt, floorY-floorT, cz+hd-wt, cx-hw+wt, floorY-floorT, cz-hd+wt,
+         cx+hw-wt, floorY-floorT, cz-hd+wt, cx+hw-wt, floorY-floorT, cz+hd-wt, wallDark);
+
+    // Stairs
+    int numSteps = 6;
+    float stepH = (floorY - fy) / numSteps;
+    float stepD = stairHoleD / numSteps;
+    float stairX = cx - stairHoleW/2 + 0.1f;
+    float stairW = stairHoleW - 0.2f;
+
+    for (int i = 0; i < numSteps; i++) {
+        float sy = fy + i * stepH;
+        float sz = cz + stairHoleD/2 - i * stepD;
+        QUAD(verts, v, stairX, sy + stepH, sz, stairX + stairW, sy + stepH, sz,
+             stairX + stairW, sy + stepH, sz - stepD, stairX, sy + stepH, sz - stepD, stairCol);
+        QUAD(verts, v, stairX, sy, sz, stairX + stairW, sy, sz,
+             stairX + stairW, sy + stepH, sz, stairX, sy + stepH, sz, wallDark);
+    }
 
     // Roof
-    simd_float3 roofInt = {0.35f, 0.28f, 0.22f};
-    simd_float3 roofExt = {0.30f, 0.20f, 0.12f};
     float roofY = fy + wh;
-    float roofThick = 0.15f;
-    QUAD(houseVerts, hv, hx-hw, roofY, hz-hd, hx+hw, roofY, hz-hd, hx+hw, roofY, hz+hd, hx-hw, roofY, hz+hd, roofInt);
-    QUAD(houseVerts, hv, hx+hw+wt, roofY+roofThick, hz-hd-wt, hx-hw-wt, roofY+roofThick, hz-hd-wt,
-         hx-hw-wt, roofY+roofThick, hz+hd+wt, hx+hw+wt, roofY+roofThick, hz+hd+wt, roofExt);
+    QUAD(verts, v, cx-hw-wt, roofY, cz-hd-wt, cx+hw+wt, roofY, cz-hd-wt,
+         cx+hw+wt, roofY, cz+hd+wt, cx-hw-wt, roofY, cz+hd+wt, roofTop);
 
-    *count = hv;
-    return [device newBufferWithBytes:houseVerts length:sizeof(Vertex) * hv options:MTLResourceStorageModeShared];
+    float trimH = 0.3f;
+    BOX3D(verts, v, cx-hw-wt-0.1f, roofY, cz-hd-wt-0.1f, cx+hw+wt+0.1f, roofY+trimH, cz-hd-wt,
+          wallExt, wallDark, wallExt, wallDark, wallTop, roofTop);
+    BOX3D(verts, v, cx-hw-wt-0.1f, roofY, cz+hd+wt, cx+hw+wt+0.1f, roofY+trimH, cz+hd+wt+0.1f,
+          wallExt, wallDark, wallExt, wallDark, wallTop, roofTop);
+    BOX3D(verts, v, cx-hw-wt-0.1f, roofY, cz-hd-wt, cx-hw-wt, roofY+trimH, cz+hd+wt,
+          wallExt, wallDark, wallExt, wallDark, wallTop, roofTop);
+    BOX3D(verts, v, cx+hw+wt, roofY, cz-hd-wt, cx+hw+wt+0.1f, roofY+trimH, cz+hd+wt,
+          wallExt, wallDark, wallExt, wallDark, wallTop, roofTop);
+
+    *count = v;
+    return [device newBufferWithBytes:verts length:sizeof(Vertex) * v options:MTLResourceStorageModeShared];
+}
+
++ (id<MTLBuffer>)createGuardTowerBufferWithDevice:(id<MTLDevice>)device vertexCount:(NSUInteger *)count {
+    #define MAX_TOWER_VERTS 8000
+    Vertex verts[MAX_TOWER_VERTS];
+    int v = 0;
+
+    simd_float3 metalRust = {0.55f, 0.35f, 0.25f};
+    simd_float3 metalDark = {0.40f, 0.25f, 0.18f};
+    simd_float3 metalLight = {0.65f, 0.45f, 0.35f};
+    simd_float3 platformTop = {0.50f, 0.50f, 0.52f};
+    simd_float3 platformBot = {0.35f, 0.35f, 0.38f};
+    simd_float3 railCol = {0.45f, 0.30f, 0.22f};
+    simd_float3 rampCol = {0.48f, 0.48f, 0.50f};
+    simd_float3 rampDark = {0.38f, 0.38f, 0.40f};
+
+    float fy = FLOOR_Y;
+    float ts = TOWER_SIZE / 2.0f;
+    float th = TOWER_HEIGHT;
+    float platY = fy + th;
+    float platT = 0.2f;
+    float legW = 0.3f;
+    float railH = CATWALK_RAIL_HEIGHT;
+
+    float towerPos[4][2] = {
+        {TOWER_OFFSET, TOWER_OFFSET},
+        {-TOWER_OFFSET, TOWER_OFFSET},
+        {-TOWER_OFFSET, -TOWER_OFFSET},
+        {TOWER_OFFSET, -TOWER_OFFSET}
+    };
+
+    for (int t = 0; t < 4; t++) {
+        float tx = towerPos[t][0];
+        float tz = towerPos[t][1];
+
+        // Support legs
+        BOX3D(verts, v, tx-ts, fy, tz-ts, tx-ts+legW, platY, tz-ts+legW,
+              metalRust, metalDark, metalLight, metalDark, metalLight, metalDark);
+        BOX3D(verts, v, tx+ts-legW, fy, tz-ts, tx+ts, platY, tz-ts+legW,
+              metalRust, metalDark, metalLight, metalDark, metalLight, metalDark);
+        BOX3D(verts, v, tx-ts, fy, tz+ts-legW, tx-ts+legW, platY, tz+ts,
+              metalRust, metalDark, metalLight, metalDark, metalLight, metalDark);
+        BOX3D(verts, v, tx+ts-legW, fy, tz+ts-legW, tx+ts, platY, tz+ts,
+              metalRust, metalDark, metalLight, metalDark, metalLight, metalDark);
+
+        // Cross braces
+        float braceY1 = fy + th * 0.3f;
+        float braceY2 = fy + th * 0.7f;
+        QUAD(verts, v, tx-ts+legW, braceY1, tz+ts-0.05f, tx+ts-legW, braceY1, tz+ts-0.05f,
+             tx+ts-legW, braceY2, tz+ts-0.05f, tx-ts+legW, braceY2, tz+ts-0.05f, metalDark);
+        QUAD(verts, v, tx+ts-legW, braceY1, tz-ts+0.05f, tx-ts+legW, braceY1, tz-ts+0.05f,
+             tx-ts+legW, braceY2, tz-ts+0.05f, tx+ts-legW, braceY2, tz-ts+0.05f, metalDark);
+
+        // Platform
+        QUAD(verts, v, tx-ts, platY, tz-ts, tx+ts, platY, tz-ts,
+             tx+ts, platY, tz+ts, tx-ts, platY, tz+ts, platformTop);
+        QUAD(verts, v, tx-ts, platY-platT, tz+ts, tx+ts, platY-platT, tz+ts,
+             tx+ts, platY-platT, tz-ts, tx-ts, platY-platT, tz-ts, platformBot);
+
+        QUAD(verts, v, tx-ts, platY-platT, tz+ts, tx+ts, platY-platT, tz+ts,
+             tx+ts, platY, tz+ts, tx-ts, platY, tz+ts, metalRust);
+        QUAD(verts, v, tx+ts, platY-platT, tz-ts, tx-ts, platY-platT, tz-ts,
+             tx-ts, platY, tz-ts, tx+ts, platY, tz-ts, metalDark);
+        QUAD(verts, v, tx+ts, platY-platT, tz+ts, tx+ts, platY-platT, tz-ts,
+             tx+ts, platY, tz-ts, tx+ts, platY, tz+ts, metalRust);
+        QUAD(verts, v, tx-ts, platY-platT, tz-ts, tx-ts, platY-platT, tz+ts,
+             tx-ts, platY, tz+ts, tx-ts, platY, tz-ts, metalDark);
+
+        // Railings
+        float postW = 0.08f;
+        for (int side = 0; side < 4; side++) {
+            float px1, pz1;
+            switch(side) {
+                case 0: px1 = tx-ts; pz1 = tz+ts; break;
+                case 1: px1 = tx+ts; pz1 = tz-ts; break;
+                case 2: px1 = tx+ts; pz1 = tz+ts; break;
+                default: px1 = tx-ts; pz1 = tz-ts; break;
+            }
+            BOX3D(verts, v, px1-postW/2, platY, pz1-postW/2, px1+postW/2, platY+railH, pz1+postW/2,
+                  railCol, railCol, railCol, railCol, railCol, railCol);
+        }
+
+        // Horizontal rails
+        float railT = 0.06f;
+        BOX3D(verts, v, tx-ts, platY+railH-railT, tz+ts-railT, tx+ts, platY+railH, tz+ts,
+              railCol, railCol, railCol, railCol, railCol, railCol);
+        BOX3D(verts, v, tx-ts, platY+railH-railT, tz-ts, tx+ts, platY+railH, tz-ts+railT,
+              railCol, railCol, railCol, railCol, railCol, railCol);
+        BOX3D(verts, v, tx+ts-railT, platY+railH-railT, tz-ts, tx+ts, platY+railH, tz+ts,
+              railCol, railCol, railCol, railCol, railCol, railCol);
+        BOX3D(verts, v, tx-ts, platY+railH-railT, tz-ts, tx-ts+railT, platY+railH, tz+ts,
+              railCol, railCol, railCol, railCol, railCol, railCol);
+
+        // Ramp
+        float rampW = RAMP_WIDTH / 2.0f;
+        float rampL = RAMP_LENGTH;
+        float rampDx = (tx > 0) ? -1.0f : 1.0f;
+        float rampDz = (tz > 0) ? -1.0f : 1.0f;
+
+        float rampStartX = tx + rampDx * ts;
+        float rampStartZ = tz + rampDz * ts;
+        float rampEndX = rampStartX + rampDx * rampL;
+        float rampEndZ = rampStartZ + rampDz * rampL;
+
+        verts[v++] = (Vertex){{rampStartX - rampW * fabsf(rampDz), platY, rampStartZ - rampW * fabsf(rampDx)}, rampCol};
+        verts[v++] = (Vertex){{rampStartX + rampW * fabsf(rampDz), platY, rampStartZ + rampW * fabsf(rampDx)}, rampCol};
+        verts[v++] = (Vertex){{rampEndX + rampW * fabsf(rampDz), fy, rampEndZ + rampW * fabsf(rampDx)}, rampCol};
+        verts[v++] = (Vertex){{rampStartX - rampW * fabsf(rampDz), platY, rampStartZ - rampW * fabsf(rampDx)}, rampCol};
+        verts[v++] = (Vertex){{rampEndX + rampW * fabsf(rampDz), fy, rampEndZ + rampW * fabsf(rampDx)}, rampCol};
+        verts[v++] = (Vertex){{rampEndX - rampW * fabsf(rampDz), fy, rampEndZ - rampW * fabsf(rampDx)}, rampCol};
+
+        verts[v++] = (Vertex){{rampStartX + rampW * fabsf(rampDz), platY - platT, rampStartZ + rampW * fabsf(rampDx)}, rampDark};
+        verts[v++] = (Vertex){{rampStartX - rampW * fabsf(rampDz), platY - platT, rampStartZ - rampW * fabsf(rampDx)}, rampDark};
+        verts[v++] = (Vertex){{rampEndX - rampW * fabsf(rampDz), fy, rampEndZ - rampW * fabsf(rampDx)}, rampDark};
+        verts[v++] = (Vertex){{rampStartX + rampW * fabsf(rampDz), platY - platT, rampStartZ + rampW * fabsf(rampDx)}, rampDark};
+        verts[v++] = (Vertex){{rampEndX - rampW * fabsf(rampDz), fy, rampEndZ - rampW * fabsf(rampDx)}, rampDark};
+        verts[v++] = (Vertex){{rampEndX + rampW * fabsf(rampDz), fy, rampEndZ + rampW * fabsf(rampDx)}, rampDark};
+    }
+
+    *count = v;
+    return [device newBufferWithBytes:verts length:sizeof(Vertex) * v options:MTLResourceStorageModeShared];
+}
+
++ (id<MTLBuffer>)createCatwalkBufferWithDevice:(id<MTLDevice>)device vertexCount:(NSUInteger *)count {
+    #define MAX_CATWALK_VERTS 4000
+    Vertex verts[MAX_CATWALK_VERTS];
+    int v = 0;
+
+    simd_float3 walkTop = {0.42f, 0.42f, 0.45f};
+    simd_float3 walkBot = {0.32f, 0.32f, 0.35f};
+    simd_float3 walkSide = {0.38f, 0.38f, 0.40f};
+    simd_float3 railCol = {0.45f, 0.30f, 0.22f};
+
+    float fy = FLOOR_Y;
+    float th = TOWER_HEIGHT;
+    float platY = fy + th;
+    float cwW = CATWALK_WIDTH / 2.0f;
+    float cwT = CATWALK_THICK;
+    float railH = CATWALK_RAIL_HEIGHT;
+    float railT = 0.06f;
+    float ts = TOWER_SIZE / 2.0f;
+
+    float cw1_x1 = TOWER_OFFSET - ts, cw1_x2 = -TOWER_OFFSET + ts;
+    float cw1_z = TOWER_OFFSET;
+
+    float cw2_x = -TOWER_OFFSET;
+    float cw2_z1 = TOWER_OFFSET - ts, cw2_z2 = -TOWER_OFFSET + ts;
+
+    float cw3_x1 = -TOWER_OFFSET + ts, cw3_x2 = TOWER_OFFSET - ts;
+    float cw3_z = -TOWER_OFFSET;
+
+    float cw4_x = TOWER_OFFSET;
+    float cw4_z1 = -TOWER_OFFSET + ts, cw4_z2 = TOWER_OFFSET - ts;
+
+    // Catwalk 1 (NE to NW)
+    QUAD(verts, v, cw1_x1, platY, cw1_z-cwW, cw1_x2, platY, cw1_z-cwW,
+         cw1_x2, platY, cw1_z+cwW, cw1_x1, platY, cw1_z+cwW, walkTop);
+    QUAD(verts, v, cw1_x1, platY-cwT, cw1_z+cwW, cw1_x2, platY-cwT, cw1_z+cwW,
+         cw1_x2, platY-cwT, cw1_z-cwW, cw1_x1, platY-cwT, cw1_z-cwW, walkBot);
+    QUAD(verts, v, cw1_x1, platY-cwT, cw1_z+cwW, cw1_x2, platY-cwT, cw1_z+cwW,
+         cw1_x2, platY, cw1_z+cwW, cw1_x1, platY, cw1_z+cwW, walkSide);
+    QUAD(verts, v, cw1_x2, platY-cwT, cw1_z-cwW, cw1_x1, platY-cwT, cw1_z-cwW,
+         cw1_x1, platY, cw1_z-cwW, cw1_x2, platY, cw1_z-cwW, walkSide);
+    BOX3D(verts, v, cw1_x1, platY, cw1_z+cwW-railT, cw1_x2, platY+railH, cw1_z+cwW,
+          railCol, railCol, railCol, railCol, railCol, railCol);
+    BOX3D(verts, v, cw1_x1, platY, cw1_z-cwW, cw1_x2, platY+railH, cw1_z-cwW+railT,
+          railCol, railCol, railCol, railCol, railCol, railCol);
+
+    // Catwalk 2 (NW to SW)
+    QUAD(verts, v, cw2_x-cwW, platY, cw2_z1, cw2_x-cwW, platY, cw2_z2,
+         cw2_x+cwW, platY, cw2_z2, cw2_x+cwW, platY, cw2_z1, walkTop);
+    QUAD(verts, v, cw2_x+cwW, platY-cwT, cw2_z1, cw2_x+cwW, platY-cwT, cw2_z2,
+         cw2_x-cwW, platY-cwT, cw2_z2, cw2_x-cwW, platY-cwT, cw2_z1, walkBot);
+    QUAD(verts, v, cw2_x+cwW, platY-cwT, cw2_z1, cw2_x+cwW, platY-cwT, cw2_z2,
+         cw2_x+cwW, platY, cw2_z2, cw2_x+cwW, platY, cw2_z1, walkSide);
+    QUAD(verts, v, cw2_x-cwW, platY-cwT, cw2_z2, cw2_x-cwW, platY-cwT, cw2_z1,
+         cw2_x-cwW, platY, cw2_z1, cw2_x-cwW, platY, cw2_z2, walkSide);
+    BOX3D(verts, v, cw2_x+cwW-railT, platY, cw2_z1, cw2_x+cwW, platY+railH, cw2_z2,
+          railCol, railCol, railCol, railCol, railCol, railCol);
+    BOX3D(verts, v, cw2_x-cwW, platY, cw2_z1, cw2_x-cwW+railT, platY+railH, cw2_z2,
+          railCol, railCol, railCol, railCol, railCol, railCol);
+
+    // Catwalk 3 (SW to SE)
+    QUAD(verts, v, cw3_x1, platY, cw3_z+cwW, cw3_x2, platY, cw3_z+cwW,
+         cw3_x2, platY, cw3_z-cwW, cw3_x1, platY, cw3_z-cwW, walkTop);
+    QUAD(verts, v, cw3_x1, platY-cwT, cw3_z-cwW, cw3_x2, platY-cwT, cw3_z-cwW,
+         cw3_x2, platY-cwT, cw3_z+cwW, cw3_x1, platY-cwT, cw3_z+cwW, walkBot);
+    QUAD(verts, v, cw3_x1, platY-cwT, cw3_z-cwW, cw3_x2, platY-cwT, cw3_z-cwW,
+         cw3_x2, platY, cw3_z-cwW, cw3_x1, platY, cw3_z-cwW, walkSide);
+    QUAD(verts, v, cw3_x2, platY-cwT, cw3_z+cwW, cw3_x1, platY-cwT, cw3_z+cwW,
+         cw3_x1, platY, cw3_z+cwW, cw3_x2, platY, cw3_z+cwW, walkSide);
+    BOX3D(verts, v, cw3_x1, platY, cw3_z-cwW, cw3_x2, platY+railH, cw3_z-cwW+railT,
+          railCol, railCol, railCol, railCol, railCol, railCol);
+    BOX3D(verts, v, cw3_x1, platY, cw3_z+cwW-railT, cw3_x2, platY+railH, cw3_z+cwW,
+          railCol, railCol, railCol, railCol, railCol, railCol);
+
+    // Catwalk 4 (SE to NE)
+    QUAD(verts, v, cw4_x+cwW, platY, cw4_z1, cw4_x+cwW, platY, cw4_z2,
+         cw4_x-cwW, platY, cw4_z2, cw4_x-cwW, platY, cw4_z1, walkTop);
+    QUAD(verts, v, cw4_x-cwW, platY-cwT, cw4_z1, cw4_x-cwW, platY-cwT, cw4_z2,
+         cw4_x+cwW, platY-cwT, cw4_z2, cw4_x+cwW, platY-cwT, cw4_z1, walkBot);
+    QUAD(verts, v, cw4_x-cwW, platY-cwT, cw4_z1, cw4_x-cwW, platY-cwT, cw4_z2,
+         cw4_x-cwW, platY, cw4_z2, cw4_x-cwW, platY, cw4_z1, walkSide);
+    QUAD(verts, v, cw4_x+cwW, platY-cwT, cw4_z2, cw4_x+cwW, platY-cwT, cw4_z1,
+         cw4_x+cwW, platY, cw4_z1, cw4_x+cwW, platY, cw4_z2, walkSide);
+    BOX3D(verts, v, cw4_x-cwW, platY, cw4_z1, cw4_x-cwW+railT, platY+railH, cw4_z2,
+          railCol, railCol, railCol, railCol, railCol, railCol);
+    BOX3D(verts, v, cw4_x+cwW-railT, platY, cw4_z1, cw4_x+cwW, platY+railH, cw4_z2,
+          railCol, railCol, railCol, railCol, railCol, railCol);
+
+    *count = v;
+    return [device newBufferWithBytes:verts length:sizeof(Vertex) * v options:MTLResourceStorageModeShared];
+}
+
++ (id<MTLBuffer>)createBunkerBufferWithDevice:(id<MTLDevice>)device vertexCount:(NSUInteger *)count {
+    #define MAX_BUNKER_VERTS 3000
+    Vertex verts[MAX_BUNKER_VERTS];
+    int v = 0;
+
+    simd_float3 bunkerExt = {0.30f, 0.32f, 0.35f};
+    simd_float3 bunkerInt = {0.38f, 0.40f, 0.42f};
+    simd_float3 bunkerDark = {0.22f, 0.24f, 0.26f};
+    simd_float3 bunkerFloor = {0.35f, 0.35f, 0.38f};
+    simd_float3 stairCol = {0.40f, 0.40f, 0.42f};
+
+    float bx = BUNKER_X;
+    float bz = BUNKER_Z;
+    float hw = BUNKER_WIDTH / 2.0f;
+    float hd = BUNKER_DEPTH / 2.0f;
+    float fy = FLOOR_Y;
+    float by = BASEMENT_LEVEL;
+    float wt = 0.4f;
+    float sw = BUNKER_STAIR_WIDTH / 2.0f;
+
+    QUAD(verts, v, bx-hw+wt, by, bz-hd+wt, bx+hw-wt, by, bz-hd+wt,
+         bx+hw-wt, by, bz+hd-wt, bx-hw+wt, by, bz+hd-wt, bunkerFloor);
+
+    QUAD(verts, v, bx-hw+wt, by, bz-hd+wt, bx+hw-wt, by, bz-hd+wt,
+         bx+hw-wt, fy, bz-hd+wt, bx-hw+wt, fy, bz-hd+wt, bunkerInt);
+    QUAD(verts, v, bx-hw+wt, by, bz+hd-wt, bx-sw, by, bz+hd-wt,
+         bx-sw, fy, bz+hd-wt, bx-hw+wt, fy, bz+hd-wt, bunkerInt);
+    QUAD(verts, v, bx+sw, by, bz+hd-wt, bx+hw-wt, by, bz+hd-wt,
+         bx+hw-wt, fy, bz+hd-wt, bx+sw, fy, bz+hd-wt, bunkerInt);
+    QUAD(verts, v, bx-hw+wt, by, bz+hd-wt, bx-hw+wt, by, bz-hd+wt,
+         bx-hw+wt, fy, bz-hd+wt, bx-hw+wt, fy, bz+hd-wt, bunkerInt);
+    QUAD(verts, v, bx+hw-wt, by, bz-hd+wt, bx+hw-wt, by, bz+hd-wt,
+         bx+hw-wt, fy, bz+hd-wt, bx+hw-wt, fy, bz-hd+wt, bunkerInt);
+
+    float entH = 1.0f;
+    QUAD(verts, v, bx-sw-wt, fy, bz+hd, bx+sw+wt, fy, bz+hd,
+         bx+sw+wt, fy+entH, bz+hd, bx-sw-wt, fy+entH, bz+hd, bunkerExt);
+    QUAD(verts, v, bx-sw-wt, fy, bz+hd-wt, bx-sw-wt, fy, bz+hd,
+         bx-sw-wt, fy+entH, bz+hd, bx-sw-wt, fy+entH, bz+hd-wt, bunkerExt);
+    QUAD(verts, v, bx+sw+wt, fy, bz+hd, bx+sw+wt, fy, bz+hd-wt,
+         bx+sw+wt, fy+entH, bz+hd-wt, bx+sw+wt, fy+entH, bz+hd, bunkerExt);
+    QUAD(verts, v, bx-sw-wt, fy+entH, bz+hd-wt, bx+sw+wt, fy+entH, bz+hd-wt,
+         bx+sw+wt, fy+entH, bz+hd, bx-sw-wt, fy+entH, bz+hd, bunkerDark);
+
+    int numSteps = 8;
+    float stepH = (fy - by) / numSteps;
+    float stepD = (hd * 2 - wt * 2) / numSteps;
+
+    for (int i = 0; i < numSteps; i++) {
+        float sy = fy - (i + 1) * stepH;
+        float sz = bz + hd - wt - i * stepD;
+        QUAD(verts, v, bx-sw, sy + stepH, sz, bx+sw, sy + stepH, sz,
+             bx+sw, sy + stepH, sz - stepD, bx-sw, sy + stepH, sz - stepD, stairCol);
+        QUAD(verts, v, bx-sw, sy, sz, bx+sw, sy, sz,
+             bx+sw, sy + stepH, sz, bx-sw, sy + stepH, sz, bunkerDark);
+        QUAD(verts, v, bx-sw, sy, sz - stepD, bx-sw, sy, sz,
+             bx-sw, sy + stepH, sz, bx-sw, sy + stepH, sz - stepD, bunkerInt);
+        QUAD(verts, v, bx+sw, sy, sz, bx+sw, sy, sz - stepD,
+             bx+sw, sy + stepH, sz - stepD, bx+sw, sy + stepH, sz, bunkerInt);
+    }
+
+    QUAD(verts, v, bx-hw+wt, fy, bz-hd+wt, bx-hw+wt, fy, bz+hd-wt,
+         bx+hw-wt, fy, bz+hd-wt, bx+hw-wt, fy, bz-hd+wt, bunkerDark);
+
+    *count = v;
+    return [device newBufferWithBytes:verts length:sizeof(Vertex) * v options:MTLResourceStorageModeShared];
+}
+
++ (id<MTLBuffer>)createCargoContainersBufferWithDevice:(id<MTLDevice>)device vertexCount:(NSUInteger *)count {
+    #define MAX_CARGO_VERTS 3000
+    Vertex verts[MAX_CARGO_VERTS];
+    int v = 0;
+
+    simd_float3 greenFront = {0.28f, 0.38f, 0.25f};
+    simd_float3 greenBack = {0.22f, 0.30f, 0.20f};
+    simd_float3 greenSide = {0.25f, 0.35f, 0.22f};
+    simd_float3 greenTop = {0.30f, 0.40f, 0.28f};
+    simd_float3 greenBot = {0.18f, 0.25f, 0.15f};
+
+    simd_float3 rustFront = {0.55f, 0.35f, 0.22f};
+    simd_float3 rustBack = {0.45f, 0.28f, 0.18f};
+    simd_float3 rustSide = {0.50f, 0.32f, 0.20f};
+    simd_float3 rustTop = {0.58f, 0.38f, 0.25f};
+    simd_float3 rustBot = {0.38f, 0.22f, 0.12f};
+
+    float cl = CONTAINER_LENGTH / 2.0f;
+    float cw = CONTAINER_WIDTH / 2.0f;
+    float ch = CONTAINER_HEIGHT;
+    float fy = FLOOR_Y;
+
+    struct { float x, z; int rotated, colorSet; } containers[] = {
+        {8.0f, 4.0f, 0, 0}, {8.5f, 6.5f, 1, 1}, {-8.0f, 4.0f, 0, 1}, {-8.5f, 6.5f, 1, 0},
+        {6.0f, -8.0f, 1, 0}, {-6.0f, -8.0f, 1, 1}, {0.0f, -12.0f, 0, 0}, {12.0f, 0.0f, 1, 1},
+    };
+    int numContainers = 8;
+
+    for (int i = 0; i < numContainers; i++) {
+        float cx = containers[i].x;
+        float cz = containers[i].z;
+        float cxl = containers[i].rotated ? cw : cl;
+        float czl = containers[i].rotated ? cl : cw;
+
+        simd_float3 front, back, side, top, bot;
+        if (containers[i].colorSet == 0) {
+            front = greenFront; back = greenBack; side = greenSide; top = greenTop; bot = greenBot;
+        } else {
+            front = rustFront; back = rustBack; side = rustSide; top = rustTop; bot = rustBot;
+        }
+        BOX3D(verts, v, cx-cxl, fy, cz-czl, cx+cxl, fy+ch, cz+czl, front, back, side, side, top, bot);
+    }
+
+    BOX3D(verts, v, 8.0f-cl, fy+ch, 4.0f-cw, 8.0f+cl, fy+ch*2, 4.0f+cw,
+          rustFront, rustBack, rustSide, rustSide, rustTop, rustBot);
+
+    *count = v;
+    return [device newBufferWithBytes:verts length:sizeof(Vertex) * v options:MTLResourceStorageModeShared];
+}
+
++ (id<MTLBuffer>)createSandbagBufferWithDevice:(id<MTLDevice>)device vertexCount:(NSUInteger *)count {
+    #define MAX_SANDBAG_VERTS 3000
+    Vertex verts[MAX_SANDBAG_VERTS];
+    int v = 0;
+
+    simd_float3 bagFront = {0.45f, 0.42f, 0.32f};
+    simd_float3 bagBack = {0.38f, 0.35f, 0.28f};
+    simd_float3 bagSide = {0.42f, 0.38f, 0.30f};
+    simd_float3 bagTop = {0.50f, 0.45f, 0.35f};
+    simd_float3 bagBot = {0.32f, 0.30f, 0.22f};
+
+    float sl = SANDBAG_LENGTH / 2.0f;
+    float sh = SANDBAG_HEIGHT;
+    float st = SANDBAG_THICK / 2.0f;
+    float fy = FLOOR_Y;
+
+    struct { float x, z; int rotated; } walls[] = {
+        {5.0f, 4.0f, 0}, {-5.0f, 4.0f, 0}, {5.0f, -4.0f, 0}, {-5.0f, -4.0f, 0},
+        {12.0f, 10.0f, 1}, {-12.0f, 10.0f, 1}, {12.0f, -10.0f, 1}, {-12.0f, -10.0f, 1},
+        {3.0f, 8.0f, 1}, {-3.0f, 8.0f, 1},
+    };
+    int numWalls = 10;
+
+    for (int i = 0; i < numWalls; i++) {
+        float wx = walls[i].x;
+        float wz = walls[i].z;
+        float wl = walls[i].rotated ? st : sl;
+        float wd = walls[i].rotated ? sl : st;
+
+        BOX3D(verts, v, wx-wl, fy, wz-wd, wx+wl, fy+sh*0.6f, wz+wd,
+              bagFront, bagBack, bagSide, bagSide, bagTop, bagBot);
+        BOX3D(verts, v, wx-wl*0.9f, fy+sh*0.55f, wz-wd*0.9f, wx+wl*0.9f, fy+sh, wz+wd*0.9f,
+              bagFront, bagBack, bagSide, bagSide, bagTop, bagBot);
+    }
+
+    *count = v;
+    return [device newBufferWithBytes:verts length:sizeof(Vertex) * v options:MTLResourceStorageModeShared];
+}
+
++ (id<MTLBuffer>)createMilitaryFloorBufferWithDevice:(id<MTLDevice>)device vertexCount:(NSUInteger *)count {
+    #define MAX_FLOOR_VERTS 500
+    Vertex verts[MAX_FLOOR_VERTS];
+    int v = 0;
+
+    float s = ARENA_SIZE + 5.0f;
+    float fy = FLOOR_Y;
+
+    simd_float3 dirtOuter = {0.25f, 0.20f, 0.12f};
+    simd_float3 dirtInner = {0.30f, 0.25f, 0.15f};
+    simd_float3 concreteLight = {0.45f, 0.45f, 0.48f};
+    simd_float3 concreteDark = {0.38f, 0.38f, 0.40f};
+    simd_float3 roadCol = {0.30f, 0.30f, 0.32f};
+
+    verts[v++] = (Vertex){{-s, fy, -s}, dirtOuter};
+    verts[v++] = (Vertex){{s, fy, -s}, dirtOuter};
+    verts[v++] = (Vertex){{s, fy, s}, dirtInner};
+    verts[v++] = (Vertex){{-s, fy, -s}, dirtOuter};
+    verts[v++] = (Vertex){{s, fy, s}, dirtInner};
+    verts[v++] = (Vertex){{-s, fy, s}, dirtInner};
+
+    float padSize = 12.0f;
+    float padY = fy + 0.02f;
+    verts[v++] = (Vertex){{-padSize, padY, -padSize}, concreteDark};
+    verts[v++] = (Vertex){{padSize, padY, -padSize}, concreteDark};
+    verts[v++] = (Vertex){{padSize, padY, padSize}, concreteLight};
+    verts[v++] = (Vertex){{-padSize, padY, -padSize}, concreteDark};
+    verts[v++] = (Vertex){{padSize, padY, padSize}, concreteLight};
+    verts[v++] = (Vertex){{-padSize, padY, padSize}, concreteLight};
+
+    float roadW = 1.5f;
+    verts[v++] = (Vertex){{-roadW, padY+0.01f, padSize}, roadCol};
+    verts[v++] = (Vertex){{roadW, padY+0.01f, padSize}, roadCol};
+    verts[v++] = (Vertex){{roadW, padY+0.01f, s}, roadCol};
+    verts[v++] = (Vertex){{-roadW, padY+0.01f, padSize}, roadCol};
+    verts[v++] = (Vertex){{roadW, padY+0.01f, s}, roadCol};
+    verts[v++] = (Vertex){{-roadW, padY+0.01f, s}, roadCol};
+
+    verts[v++] = (Vertex){{padSize, padY+0.01f, -roadW}, roadCol};
+    verts[v++] = (Vertex){{s, padY+0.01f, -roadW}, roadCol};
+    verts[v++] = (Vertex){{s, padY+0.01f, roadW}, roadCol};
+    verts[v++] = (Vertex){{padSize, padY+0.01f, -roadW}, roadCol};
+    verts[v++] = (Vertex){{s, padY+0.01f, roadW}, roadCol};
+    verts[v++] = (Vertex){{padSize, padY+0.01f, roadW}, roadCol};
+
+    verts[v++] = (Vertex){{-s, padY+0.01f, -roadW}, roadCol};
+    verts[v++] = (Vertex){{-padSize, padY+0.01f, -roadW}, roadCol};
+    verts[v++] = (Vertex){{-padSize, padY+0.01f, roadW}, roadCol};
+    verts[v++] = (Vertex){{-s, padY+0.01f, -roadW}, roadCol};
+    verts[v++] = (Vertex){{-padSize, padY+0.01f, roadW}, roadCol};
+    verts[v++] = (Vertex){{-s, padY+0.01f, roadW}, roadCol};
+
+    *count = v;
+    return [device newBufferWithBytes:verts length:sizeof(Vertex) * v options:MTLResourceStorageModeShared];
+}
+
+// ============================================
+// LEGACY GEOMETRY (compatibility)
+// ============================================
+
++ (id<MTLBuffer>)createHouseBufferWithDevice:(id<MTLDevice>)device vertexCount:(NSUInteger *)count {
+    return [self createCommandBuildingBufferWithDevice:device vertexCount:count];
 }
 
 + (id<MTLBuffer>)createDoorBufferWithDevice:(id<MTLDevice>)device vertexCount:(NSUInteger *)count {
@@ -128,68 +610,31 @@
     simd_float3 doorSide = {0.35f, 0.22f, 0.12f};
     simd_float3 handleCol = {0.7f, 0.65f, 0.4f};
 
-    float dw = DOOR_WIDTH;
-    float dh = DOOR_HEIGHT;
-    float dt = 0.08f;
-
-    float handleX = dw - 0.15f;
-    float handleY = dh * 0.45f;
-    float handleW = 0.12f;
-    float handleH = 0.04f;
-    float handleD = 0.04f;
+    float dw = DOOR_WIDTH, dh = DOOR_HEIGHT, dt = 0.08f;
+    float handleX = dw - 0.15f, handleY = dh * 0.45f;
+    float handleW = 0.12f, handleH = 0.04f, handleD = 0.04f;
 
     Vertex doorVerts[] = {
-        // Front face
         {{0, 0, dt/2}, doorFront}, {{dw, 0, dt/2}, doorFront}, {{dw, dh, dt/2}, doorFront},
         {{0, 0, dt/2}, doorFront}, {{dw, dh, dt/2}, doorFront}, {{0, dh, dt/2}, doorFront},
-        // Back face
         {{dw, 0, -dt/2}, doorBack}, {{0, 0, -dt/2}, doorBack}, {{0, dh, -dt/2}, doorBack},
         {{dw, 0, -dt/2}, doorBack}, {{0, dh, -dt/2}, doorBack}, {{dw, dh, -dt/2}, doorBack},
-        // Right edge
         {{dw, 0, dt/2}, doorSide}, {{dw, 0, -dt/2}, doorSide}, {{dw, dh, -dt/2}, doorSide},
         {{dw, 0, dt/2}, doorSide}, {{dw, dh, -dt/2}, doorSide}, {{dw, dh, dt/2}, doorSide},
-        // Left edge
         {{0, 0, -dt/2}, doorSide}, {{0, 0, dt/2}, doorSide}, {{0, dh, dt/2}, doorSide},
         {{0, 0, -dt/2}, doorSide}, {{0, dh, dt/2}, doorSide}, {{0, dh, -dt/2}, doorSide},
-        // Top
         {{0, dh, dt/2}, doorSide}, {{dw, dh, dt/2}, doorSide}, {{dw, dh, -dt/2}, doorSide},
         {{0, dh, dt/2}, doorSide}, {{dw, dh, -dt/2}, doorSide}, {{0, dh, -dt/2}, doorSide},
-        // Front handle
         {{handleX, handleY, dt/2}, handleCol}, {{handleX+handleW, handleY, dt/2}, handleCol}, {{handleX+handleW, handleY+handleH, dt/2}, handleCol},
         {{handleX, handleY, dt/2}, handleCol}, {{handleX+handleW, handleY+handleH, dt/2}, handleCol}, {{handleX, handleY+handleH, dt/2}, handleCol},
-        {{handleX, handleY, dt/2+handleD}, handleCol}, {{handleX+handleW, handleY, dt/2+handleD}, handleCol}, {{handleX+handleW, handleY+handleH, dt/2+handleD}, handleCol},
-        {{handleX, handleY, dt/2+handleD}, handleCol}, {{handleX+handleW, handleY+handleH, dt/2+handleD}, handleCol}, {{handleX, handleY+handleH, dt/2+handleD}, handleCol},
-        {{handleX, handleY, dt/2}, handleCol}, {{handleX, handleY, dt/2+handleD}, handleCol}, {{handleX, handleY+handleH, dt/2+handleD}, handleCol},
-        {{handleX, handleY, dt/2}, handleCol}, {{handleX, handleY+handleH, dt/2+handleD}, handleCol}, {{handleX, handleY+handleH, dt/2}, handleCol},
-        {{handleX+handleW, handleY, dt/2+handleD}, handleCol}, {{handleX+handleW, handleY, dt/2}, handleCol}, {{handleX+handleW, handleY+handleH, dt/2}, handleCol},
-        {{handleX+handleW, handleY, dt/2+handleD}, handleCol}, {{handleX+handleW, handleY+handleH, dt/2}, handleCol}, {{handleX+handleW, handleY+handleH, dt/2+handleD}, handleCol},
-        {{handleX, handleY+handleH, dt/2}, handleCol}, {{handleX, handleY+handleH, dt/2+handleD}, handleCol}, {{handleX+handleW, handleY+handleH, dt/2+handleD}, handleCol},
-        {{handleX, handleY+handleH, dt/2}, handleCol}, {{handleX+handleW, handleY+handleH, dt/2+handleD}, handleCol}, {{handleX+handleW, handleY+handleH, dt/2}, handleCol},
-        // Back handle
-        {{handleX+handleW, handleY, -dt/2}, handleCol}, {{handleX, handleY, -dt/2}, handleCol}, {{handleX, handleY+handleH, -dt/2}, handleCol},
-        {{handleX+handleW, handleY, -dt/2}, handleCol}, {{handleX, handleY+handleH, -dt/2}, handleCol}, {{handleX+handleW, handleY+handleH, -dt/2}, handleCol},
-        {{handleX+handleW, handleY, -dt/2-handleD}, handleCol}, {{handleX, handleY, -dt/2-handleD}, handleCol}, {{handleX, handleY+handleH, -dt/2-handleD}, handleCol},
-        {{handleX+handleW, handleY, -dt/2-handleD}, handleCol}, {{handleX, handleY+handleH, -dt/2-handleD}, handleCol}, {{handleX+handleW, handleY+handleH, -dt/2-handleD}, handleCol},
-        {{handleX, handleY, -dt/2-handleD}, handleCol}, {{handleX, handleY, -dt/2}, handleCol}, {{handleX, handleY+handleH, -dt/2}, handleCol},
-        {{handleX, handleY, -dt/2-handleD}, handleCol}, {{handleX, handleY+handleH, -dt/2}, handleCol}, {{handleX, handleY+handleH, -dt/2-handleD}, handleCol},
-        {{handleX+handleW, handleY, -dt/2}, handleCol}, {{handleX+handleW, handleY, -dt/2-handleD}, handleCol}, {{handleX+handleW, handleY+handleH, -dt/2-handleD}, handleCol},
-        {{handleX+handleW, handleY, -dt/2}, handleCol}, {{handleX+handleW, handleY+handleH, -dt/2-handleD}, handleCol}, {{handleX+handleW, handleY+handleH, -dt/2}, handleCol},
-        {{handleX, handleY+handleH, -dt/2-handleD}, handleCol}, {{handleX, handleY+handleH, -dt/2}, handleCol}, {{handleX+handleW, handleY+handleH, -dt/2}, handleCol},
-        {{handleX, handleY+handleH, -dt/2-handleD}, handleCol}, {{handleX+handleW, handleY+handleH, -dt/2}, handleCol}, {{handleX+handleW, handleY+handleH, -dt/2-handleD}, handleCol},
     };
     *count = sizeof(doorVerts) / sizeof(Vertex);
     return [device newBufferWithBytes:doorVerts length:sizeof(doorVerts) options:MTLResourceStorageModeShared];
 }
 
 + (id<MTLBuffer>)createFloorBufferWithDevice:(id<MTLDevice>)device {
-    float s = 50.0f;
-    simd_float3 c1 = {0.0, 0.15, 0.0};
-    simd_float3 c2 = {0.0, 0.1, 0.0};
-    Vertex floorVerts[] = {
-        {{-s, -1, -s}, c2}, {{s, -1, -s}, c2}, {{s, -1, s}, c1},
-        {{-s, -1, -s}, c2}, {{s, -1, s}, c1}, {{-s, -1, s}, c1},
-    };
-    return [device newBufferWithBytes:floorVerts length:sizeof(floorVerts) options:MTLResourceStorageModeShared];
+    NSUInteger floorCount;
+    return [self createMilitaryFloorBufferWithDevice:device vertexCount:&floorCount];
 }
 
 + (id<MTLBuffer>)createWall1BufferWithDevice:(id<MTLDevice>)device {
@@ -200,25 +645,13 @@
     simd_float3 wallTop = {0.50f, 0.50f, 0.48f};
     simd_float3 wallBot = {0.25f, 0.25f, 0.23f};
 
-    float hw = WALL_WIDTH / 2.0f;
-    float hh = WALL_HEIGHT / 2.0f;
-    float hd = WALL_DEPTH / 2.0f;
+    float hw = WALL_WIDTH / 2.0f, hh = WALL_HEIGHT / 2.0f, hd = WALL_DEPTH / 2.0f;
     float w1y = FLOOR_Y + hh;
 
-    Vertex wall1Verts[] = {
-        {{WALL1_X - hw, w1y - hh, WALL1_Z + hd}, wallFront}, {{WALL1_X + hw, w1y - hh, WALL1_Z + hd}, wallFront}, {{WALL1_X + hw, w1y + hh, WALL1_Z + hd}, wallFront},
-        {{WALL1_X - hw, w1y - hh, WALL1_Z + hd}, wallFront}, {{WALL1_X + hw, w1y + hh, WALL1_Z + hd}, wallFront}, {{WALL1_X - hw, w1y + hh, WALL1_Z + hd}, wallFront},
-        {{WALL1_X + hw, w1y - hh, WALL1_Z - hd}, wallBack}, {{WALL1_X - hw, w1y - hh, WALL1_Z - hd}, wallBack}, {{WALL1_X - hw, w1y + hh, WALL1_Z - hd}, wallBack},
-        {{WALL1_X + hw, w1y - hh, WALL1_Z - hd}, wallBack}, {{WALL1_X - hw, w1y + hh, WALL1_Z - hd}, wallBack}, {{WALL1_X + hw, w1y + hh, WALL1_Z - hd}, wallBack},
-        {{WALL1_X + hw, w1y - hh, WALL1_Z + hd}, wallRight}, {{WALL1_X + hw, w1y - hh, WALL1_Z - hd}, wallRight}, {{WALL1_X + hw, w1y + hh, WALL1_Z - hd}, wallRight},
-        {{WALL1_X + hw, w1y - hh, WALL1_Z + hd}, wallRight}, {{WALL1_X + hw, w1y + hh, WALL1_Z - hd}, wallRight}, {{WALL1_X + hw, w1y + hh, WALL1_Z + hd}, wallRight},
-        {{WALL1_X - hw, w1y - hh, WALL1_Z - hd}, wallLeft}, {{WALL1_X - hw, w1y - hh, WALL1_Z + hd}, wallLeft}, {{WALL1_X - hw, w1y + hh, WALL1_Z + hd}, wallLeft},
-        {{WALL1_X - hw, w1y - hh, WALL1_Z - hd}, wallLeft}, {{WALL1_X - hw, w1y + hh, WALL1_Z + hd}, wallLeft}, {{WALL1_X - hw, w1y + hh, WALL1_Z - hd}, wallLeft},
-        {{WALL1_X - hw, w1y + hh, WALL1_Z + hd}, wallTop}, {{WALL1_X + hw, w1y + hh, WALL1_Z + hd}, wallTop}, {{WALL1_X + hw, w1y + hh, WALL1_Z - hd}, wallTop},
-        {{WALL1_X - hw, w1y + hh, WALL1_Z + hd}, wallTop}, {{WALL1_X + hw, w1y + hh, WALL1_Z - hd}, wallTop}, {{WALL1_X - hw, w1y + hh, WALL1_Z - hd}, wallTop},
-        {{WALL1_X - hw, w1y - hh, WALL1_Z - hd}, wallBot}, {{WALL1_X + hw, w1y - hh, WALL1_Z - hd}, wallBot}, {{WALL1_X + hw, w1y - hh, WALL1_Z + hd}, wallBot},
-        {{WALL1_X - hw, w1y - hh, WALL1_Z - hd}, wallBot}, {{WALL1_X + hw, w1y - hh, WALL1_Z + hd}, wallBot}, {{WALL1_X - hw, w1y - hh, WALL1_Z + hd}, wallBot},
-    };
+    Vertex wall1Verts[36];
+    int v = 0;
+    BOX3D(wall1Verts, v, WALL1_X-hw, w1y-hh, WALL1_Z-hd, WALL1_X+hw, w1y+hh, WALL1_Z+hd,
+          wallFront, wallBack, wallRight, wallLeft, wallTop, wallBot);
     return [device newBufferWithBytes:wall1Verts length:sizeof(wall1Verts) options:MTLResourceStorageModeShared];
 }
 
@@ -230,27 +663,19 @@
     simd_float3 wallTop = {0.50f, 0.50f, 0.48f};
     simd_float3 wallBot = {0.25f, 0.25f, 0.23f};
 
-    float hw = WALL_WIDTH / 2.0f;
-    float hh = WALL_HEIGHT / 2.0f;
-    float hd = WALL_DEPTH / 2.0f;
+    float hw = WALL_WIDTH / 2.0f, hh = WALL_HEIGHT / 2.0f, hd = WALL_DEPTH / 2.0f;
     float w2y = FLOOR_Y + hh;
 
-    Vertex wall2Verts[] = {
-        {{WALL2_X - hw, w2y - hh, WALL2_Z + hd}, wallFront}, {{WALL2_X + hw, w2y - hh, WALL2_Z + hd}, wallFront}, {{WALL2_X + hw, w2y + hh, WALL2_Z + hd}, wallFront},
-        {{WALL2_X - hw, w2y - hh, WALL2_Z + hd}, wallFront}, {{WALL2_X + hw, w2y + hh, WALL2_Z + hd}, wallFront}, {{WALL2_X - hw, w2y + hh, WALL2_Z + hd}, wallFront},
-        {{WALL2_X + hw, w2y - hh, WALL2_Z - hd}, wallBack}, {{WALL2_X - hw, w2y - hh, WALL2_Z - hd}, wallBack}, {{WALL2_X - hw, w2y + hh, WALL2_Z - hd}, wallBack},
-        {{WALL2_X + hw, w2y - hh, WALL2_Z - hd}, wallBack}, {{WALL2_X - hw, w2y + hh, WALL2_Z - hd}, wallBack}, {{WALL2_X + hw, w2y + hh, WALL2_Z - hd}, wallBack},
-        {{WALL2_X + hw, w2y - hh, WALL2_Z + hd}, wallRight}, {{WALL2_X + hw, w2y - hh, WALL2_Z - hd}, wallRight}, {{WALL2_X + hw, w2y + hh, WALL2_Z - hd}, wallRight},
-        {{WALL2_X + hw, w2y - hh, WALL2_Z + hd}, wallRight}, {{WALL2_X + hw, w2y + hh, WALL2_Z - hd}, wallRight}, {{WALL2_X + hw, w2y + hh, WALL2_Z + hd}, wallRight},
-        {{WALL2_X - hw, w2y - hh, WALL2_Z - hd}, wallLeft}, {{WALL2_X - hw, w2y - hh, WALL2_Z + hd}, wallLeft}, {{WALL2_X - hw, w2y + hh, WALL2_Z + hd}, wallLeft},
-        {{WALL2_X - hw, w2y - hh, WALL2_Z - hd}, wallLeft}, {{WALL2_X - hw, w2y + hh, WALL2_Z + hd}, wallLeft}, {{WALL2_X - hw, w2y + hh, WALL2_Z - hd}, wallLeft},
-        {{WALL2_X - hw, w2y + hh, WALL2_Z + hd}, wallTop}, {{WALL2_X + hw, w2y + hh, WALL2_Z + hd}, wallTop}, {{WALL2_X + hw, w2y + hh, WALL2_Z - hd}, wallTop},
-        {{WALL2_X - hw, w2y + hh, WALL2_Z + hd}, wallTop}, {{WALL2_X + hw, w2y + hh, WALL2_Z - hd}, wallTop}, {{WALL2_X - hw, w2y + hh, WALL2_Z - hd}, wallTop},
-        {{WALL2_X - hw, w2y - hh, WALL2_Z - hd}, wallBot}, {{WALL2_X + hw, w2y - hh, WALL2_Z - hd}, wallBot}, {{WALL2_X + hw, w2y - hh, WALL2_Z + hd}, wallBot},
-        {{WALL2_X - hw, w2y - hh, WALL2_Z - hd}, wallBot}, {{WALL2_X + hw, w2y - hh, WALL2_Z + hd}, wallBot}, {{WALL2_X - hw, w2y - hh, WALL2_Z + hd}, wallBot},
-    };
+    Vertex wall2Verts[36];
+    int v = 0;
+    BOX3D(wall2Verts, v, WALL2_X-hw, w2y-hh, WALL2_Z-hd, WALL2_X+hw, w2y+hh, WALL2_Z+hd,
+          wallFront, wallBack, wallRight, wallLeft, wallTop, wallBot);
     return [device newBufferWithBytes:wall2Verts length:sizeof(wall2Verts) options:MTLResourceStorageModeShared];
 }
+
+// ============================================
+// CHARACTER & WEAPON GEOMETRY
+// ============================================
 
 + (id<MTLBuffer>)createGunBufferWithDevice:(id<MTLDevice>)device vertexCount:(NSUInteger *)count {
     #define MAX_GUN_VERTS 1500
@@ -316,7 +741,6 @@
     Vertex playerVerts[MAX_REMOTE_PLAYER_VERTS];
     int pv = 0;
 
-    // Blue team colors instead of red
     simd_float3 bodyDark = {0.1f, 0.1f, 0.5f};
     simd_float3 bodyMid = {0.15f, 0.15f, 0.7f};
     simd_float3 bodyLight = {0.2f, 0.2f, 0.8f};
@@ -326,7 +750,6 @@
     simd_float3 gunC2 = {0.1f, 0.1f, 0.1f};
     simd_float3 gunC3 = {0.25f, 0.25f, 0.25f};
 
-    // Same humanoid shape as enemy model
     BOX3D(playerVerts, pv, -0.15f, 0.5f, -0.1f, 0.15f, 0.8f, 0.1f, skinTone, skinDark, skinTone, skinTone, skinTone, skinDark);
     BOX3D(playerVerts, pv, -0.2f, 0.0f, -0.12f, 0.2f, 0.5f, 0.12f, bodyMid, bodyDark, bodyLight, bodyMid, bodyLight, bodyDark);
     BOX3D(playerVerts, pv, -0.35f, 0.1f, -0.08f, -0.2f, 0.45f, 0.08f, bodyMid, bodyDark, bodyLight, bodyMid, bodyLight, bodyDark);
@@ -353,6 +776,10 @@
     };
     return [device newBufferWithBytes:flashVerts length:sizeof(flashVerts) options:MTLResourceStorageModeShared];
 }
+
+// ============================================
+// UI GEOMETRY
+// ============================================
 
 + (id<MTLBuffer>)createHealthBarBgBufferWithDevice:(id<MTLDevice>)device {
     simd_float3 bgCol = {0.4f, 0.0f, 0.0f};
@@ -396,6 +823,7 @@
     int gov = 0;
     simd_float3 red = {1.0f, 0.2f, 0.2f};
     simd_float3 white = {1, 1, 1};
+    simd_float3 yellow = {1.0f, 1.0f, 0.2f};
 
     #define GORECT(x0,y0,x1,y1,col) do { \
         goVerts[gov++] = (Vertex){{x0,y0,0},col}; \
@@ -407,80 +835,60 @@
     } while(0)
 
     float lw = 0.07f, lh = 0.12f, th = 0.015f, sp = 0.09f;
-    float startX = -0.40f;
-    float y = 0.05f;
-    float x;
+    float startX = -0.40f, y = 0.05f, x;
 
-    // G
     x = startX;
     GORECT(x, y, x+th, y+lh, red); GORECT(x, y+lh-th, x+lw, y+lh, red); GORECT(x, y, x+lw, y+th, red);
     GORECT(x+lw-th, y, x+lw, y+lh*0.5f, red); GORECT(x+lw*0.4f, y+lh*0.45f, x+lw, y+lh*0.45f+th, red);
-    // A
     x += sp;
     GORECT(x, y, x+th, y+lh, red); GORECT(x+lw-th, y, x+lw, y+lh, red);
     GORECT(x, y+lh-th, x+lw, y+lh, red); GORECT(x, y+lh*0.45f, x+lw, y+lh*0.45f+th, red);
-    // M
     x += sp;
     GORECT(x, y, x+th, y+lh, red); GORECT(x+lw-th, y, x+lw, y+lh, red);
     GORECT(x, y+lh-th, x+lw*0.5f, y+lh, red); GORECT(x+lw*0.5f, y+lh-th, x+lw, y+lh, red);
     GORECT(x+lw*0.5f-th*0.5f, y+lh*0.5f, x+lw*0.5f+th*0.5f, y+lh, red);
-    // E
     x += sp;
     GORECT(x, y, x+th, y+lh, red); GORECT(x, y+lh-th, x+lw, y+lh, red);
     GORECT(x, y, x+lw, y+th, red); GORECT(x, y+lh*0.45f, x+lw*0.7f, y+lh*0.45f+th, red);
-    // Space
     x += sp * 0.7f;
-    // O
     x += sp;
     GORECT(x, y, x+th, y+lh, red); GORECT(x+lw-th, y, x+lw, y+lh, red);
     GORECT(x, y+lh-th, x+lw, y+lh, red); GORECT(x, y, x+lw, y+th, red);
-    // V
     x += sp;
     GORECT(x, y+lh*0.3f, x+th, y+lh, red); GORECT(x+lw-th, y+lh*0.3f, x+lw, y+lh, red);
     GORECT(x, y+lh*0.3f, x+lw*0.5f+th, y+lh*0.3f+th, red);
     GORECT(x+lw*0.5f-th, y+lh*0.3f, x+lw, y+lh*0.3f+th, red);
     GORECT(x+lw*0.5f-th*0.5f, y, x+lw*0.5f+th*0.5f, y+lh*0.35f, red);
-    // E
     x += sp;
     GORECT(x, y, x+th, y+lh, red); GORECT(x, y+lh-th, x+lw, y+lh, red);
     GORECT(x, y, x+lw, y+th, red); GORECT(x, y+lh*0.45f, x+lw*0.7f, y+lh*0.45f+th, red);
-    // R
     x += sp;
     GORECT(x, y, x+th, y+lh, red); GORECT(x, y+lh-th, x+lw, y+lh, red);
     GORECT(x+lw-th, y+lh*0.5f, x+lw, y+lh, red); GORECT(x, y+lh*0.45f, x+lw, y+lh*0.45f+th, red);
     GORECT(x+lw*0.4f, y, x+lw, y+lh*0.45f, red);
 
-    // "PRESS R" smaller
     lw = 0.045f; lh = 0.07f; th = 0.01f; sp = 0.055f;
     startX = -0.19f; y = -0.12f;
-    // P
     x = startX;
     GORECT(x, y, x+th, y+lh, white); GORECT(x, y+lh-th, x+lw, y+lh, white);
     GORECT(x+lw-th, y+lh*0.45f, x+lw, y+lh, white); GORECT(x, y+lh*0.45f, x+lw, y+lh*0.45f+th, white);
-    // R
     x += sp;
     GORECT(x, y, x+th, y+lh, white); GORECT(x, y+lh-th, x+lw, y+lh, white);
     GORECT(x+lw-th, y+lh*0.5f, x+lw, y+lh, white); GORECT(x, y+lh*0.45f, x+lw, y+lh*0.45f+th, white);
     GORECT(x+lw*0.4f, y, x+lw, y+lh*0.45f, white);
-    // E
     x += sp;
     GORECT(x, y, x+th, y+lh, white); GORECT(x, y+lh-th, x+lw, y+lh, white);
     GORECT(x, y, x+lw, y+th, white); GORECT(x, y+lh*0.45f, x+lw*0.7f, y+lh*0.45f+th, white);
-    // S
     x += sp;
     GORECT(x, y+lh-th, x+lw, y+lh, white); GORECT(x, y+lh*0.5f, x+th, y+lh, white);
     GORECT(x, y+lh*0.45f, x+lw, y+lh*0.45f+th, white);
     GORECT(x+lw-th, y, x+lw, y+lh*0.5f, white); GORECT(x, y, x+lw, y+th, white);
-    // S
     x += sp;
     GORECT(x, y+lh-th, x+lw, y+lh, white); GORECT(x, y+lh*0.5f, x+th, y+lh, white);
     GORECT(x, y+lh*0.45f, x+lw, y+lh*0.45f+th, white);
     GORECT(x+lw-th, y, x+lw, y+lh*0.5f, white); GORECT(x, y, x+lw, y+th, white);
-    // Space
     x += sp * 0.5f;
-    // R (yellow)
     x += sp;
-    simd_float3 yellow = {1.0f, 1.0f, 0.2f};
     GORECT(x, y, x+th, y+lh, yellow); GORECT(x, y+lh-th, x+lw, y+lh, yellow);
     GORECT(x+lw-th, y+lh*0.5f, x+lw, y+lh, yellow); GORECT(x, y+lh*0.45f, x+lw, y+lh*0.45f+th, yellow);
     GORECT(x+lw*0.4f, y, x+lw, y+lh*0.45f, yellow);
@@ -551,17 +959,11 @@
         textVerts[tv++] = (Vertex){{ax,by,0},{1,1,1}}; \
     } while(0)
 
-    // P
     RECT(0,0,1,7); RECT(1,6,4,7); RECT(4,4,5,7); RECT(1,3,4,4);
-    // A
     RECT(7,0,8,7); RECT(8,6,11,7); RECT(11,0,12,7); RECT(8,3,11,4);
-    // U
     RECT(14,0,15,7); RECT(15,0,18,1); RECT(18,0,19,7);
-    // S
     RECT(22,0,26,1); RECT(25,1,26,3); RECT(22,3,25,4); RECT(21,4,22,6); RECT(21,6,25,7);
-    // E
     RECT(28,0,29,7); RECT(29,0,33,1); RECT(29,3,32,4); RECT(29,6,33,7);
-    // D
     RECT(35,0,36,7); RECT(36,0,39,1); RECT(39,1,40,6); RECT(36,6,39,7);
 
     #undef RECT
@@ -582,7 +984,7 @@
 }
 
 + (id<MTLBuffer>)createBoxGridBufferWithDevice:(id<MTLDevice>)device vertexCount:(NSUInteger *)count {
-    float h = 10.0f;
+    float h = ARENA_SIZE + 5.0f;
     int gridDiv = 20;
     simd_float3 col = {0.3, 0.3, 0.3};
     int maxVerts = 6 * 2 * (gridDiv + 1) * 2;
@@ -620,6 +1022,154 @@
     id<MTLBuffer> buffer = [device newBufferWithBytes:boxVerts length:sizeof(Vertex) * bv options:MTLResourceStorageModeShared];
     free(boxVerts);
     return buffer;
+}
+
+// ============================================
+// PICKUP GEOMETRY
+// ============================================
+
++ (id<MTLBuffer>)createHealthPackBufferWithDevice:(id<MTLDevice>)device vertexCount:(NSUInteger *)count {
+    #define MAX_HEALTH_VERTS 300
+    Vertex verts[MAX_HEALTH_VERTS];
+    int v = 0;
+
+    float size = 0.25f;
+    float hs = size / 2.0f;
+
+    simd_float3 white = {0.95f, 0.95f, 0.95f};
+    simd_float3 whiteDark = {0.8f, 0.8f, 0.8f};
+    simd_float3 red = {0.9f, 0.1f, 0.1f};
+
+    BOX3D(verts, v, -hs, 0, -hs, hs, size*0.6f, hs, white, whiteDark, white, whiteDark, white, whiteDark);
+
+    float crossW = size * 0.6f;
+    float crossH = size * 0.2f;
+    float topY = size * 0.6f + 0.001f;
+
+    verts[v++] = (Vertex){{-crossW/2, topY, -crossH/2}, red};
+    verts[v++] = (Vertex){{crossW/2, topY, -crossH/2}, red};
+    verts[v++] = (Vertex){{crossW/2, topY, crossH/2}, red};
+    verts[v++] = (Vertex){{-crossW/2, topY, -crossH/2}, red};
+    verts[v++] = (Vertex){{crossW/2, topY, crossH/2}, red};
+    verts[v++] = (Vertex){{-crossW/2, topY, crossH/2}, red};
+
+    verts[v++] = (Vertex){{-crossH/2, topY, -crossW/2}, red};
+    verts[v++] = (Vertex){{crossH/2, topY, -crossW/2}, red};
+    verts[v++] = (Vertex){{crossH/2, topY, crossW/2}, red};
+    verts[v++] = (Vertex){{-crossH/2, topY, -crossW/2}, red};
+    verts[v++] = (Vertex){{crossH/2, topY, crossW/2}, red};
+    verts[v++] = (Vertex){{-crossH/2, topY, crossW/2}, red};
+
+    *count = v;
+    return [device newBufferWithBytes:verts length:sizeof(Vertex) * v options:MTLResourceStorageModeShared];
+}
+
++ (id<MTLBuffer>)createAmmoBoxBufferWithDevice:(id<MTLDevice>)device vertexCount:(NSUInteger *)count {
+    #define MAX_AMMO_VERTS 200
+    Vertex verts[MAX_AMMO_VERTS];
+    int v = 0;
+
+    float w = 0.3f, h = 0.18f, d = 0.2f;
+
+    simd_float3 greenFront = {0.25f, 0.35f, 0.15f};
+    simd_float3 greenBack = {0.18f, 0.28f, 0.1f};
+    simd_float3 greenSide = {0.22f, 0.32f, 0.12f};
+    simd_float3 greenTop = {0.28f, 0.38f, 0.18f};
+    simd_float3 greenBot = {0.15f, 0.25f, 0.08f};
+    simd_float3 yellow = {0.9f, 0.8f, 0.2f};
+
+    BOX3D(verts, v, -w/2, 0, -d/2, w/2, h, d/2, greenFront, greenBack, greenSide, greenSide, greenTop, greenBot);
+
+    float stripeW = w * 0.6f;
+    float stripeD = 0.03f;
+    float topY = h + 0.001f;
+    verts[v++] = (Vertex){{-stripeW/2, topY, -stripeD/2}, yellow};
+    verts[v++] = (Vertex){{stripeW/2, topY, -stripeD/2}, yellow};
+    verts[v++] = (Vertex){{stripeW/2, topY, stripeD/2}, yellow};
+    verts[v++] = (Vertex){{-stripeW/2, topY, -stripeD/2}, yellow};
+    verts[v++] = (Vertex){{stripeW/2, topY, stripeD/2}, yellow};
+    verts[v++] = (Vertex){{-stripeW/2, topY, stripeD/2}, yellow};
+
+    *count = v;
+    return [device newBufferWithBytes:verts length:sizeof(Vertex) * v options:MTLResourceStorageModeShared];
+}
+
++ (id<MTLBuffer>)createWeaponPickupBufferWithDevice:(id<MTLDevice>)device vertexCount:(NSUInteger *)count {
+    #define MAX_WEAPON_PICKUP_VERTS 200
+    Vertex verts[MAX_WEAPON_PICKUP_VERTS];
+    int v = 0;
+
+    simd_float3 gunDark = {0.15f, 0.15f, 0.17f};
+    simd_float3 gunMid = {0.25f, 0.25f, 0.28f};
+    simd_float3 gunLight = {0.35f, 0.35f, 0.38f};
+
+    BOX3D(verts, v, -0.03f, 0.0f, -0.2f, 0.03f, 0.05f, 0.2f, gunMid, gunDark, gunLight, gunMid, gunLight, gunDark);
+    BOX3D(verts, v, -0.04f, -0.1f, -0.18f, 0.04f, 0.0f, -0.08f, gunDark, gunMid, gunLight, gunMid, gunLight, gunDark);
+    BOX3D(verts, v, -0.025f, -0.08f, -0.05f, 0.025f, 0.0f, 0.05f, gunDark, gunDark, gunMid, gunMid, gunLight, gunDark);
+
+    *count = v;
+    return [device newBufferWithBytes:verts length:sizeof(Vertex) * v options:MTLResourceStorageModeShared];
+}
+
++ (id<MTLBuffer>)createArmorBufferWithDevice:(id<MTLDevice>)device vertexCount:(NSUInteger *)count {
+    #define MAX_ARMOR_VERTS 400
+    Vertex verts[MAX_ARMOR_VERTS];
+    int v = 0;
+
+    float w = 0.25f, h = 0.3f, d = 0.08f;
+
+    simd_float3 blueFront = {0.2f, 0.4f, 0.9f};
+    simd_float3 blueBack = {0.1f, 0.25f, 0.6f};
+    simd_float3 blueSide = {0.15f, 0.35f, 0.8f};
+    simd_float3 blueTop = {0.3f, 0.5f, 1.0f};
+    simd_float3 blueBot = {0.1f, 0.2f, 0.5f};
+
+    float topW = w, botW = w * 0.6f;
+
+    verts[v++] = (Vertex){{-botW/2, 0, d/2}, blueFront};
+    verts[v++] = (Vertex){{botW/2, 0, d/2}, blueFront};
+    verts[v++] = (Vertex){{topW/2, h, d/2}, blueFront};
+    verts[v++] = (Vertex){{-botW/2, 0, d/2}, blueFront};
+    verts[v++] = (Vertex){{topW/2, h, d/2}, blueFront};
+    verts[v++] = (Vertex){{-topW/2, h, d/2}, blueFront};
+
+    verts[v++] = (Vertex){{botW/2, 0, -d/2}, blueBack};
+    verts[v++] = (Vertex){{-botW/2, 0, -d/2}, blueBack};
+    verts[v++] = (Vertex){{-topW/2, h, -d/2}, blueBack};
+    verts[v++] = (Vertex){{botW/2, 0, -d/2}, blueBack};
+    verts[v++] = (Vertex){{-topW/2, h, -d/2}, blueBack};
+    verts[v++] = (Vertex){{topW/2, h, -d/2}, blueBack};
+
+    verts[v++] = (Vertex){{botW/2, 0, d/2}, blueSide};
+    verts[v++] = (Vertex){{botW/2, 0, -d/2}, blueSide};
+    verts[v++] = (Vertex){{topW/2, h, -d/2}, blueSide};
+    verts[v++] = (Vertex){{botW/2, 0, d/2}, blueSide};
+    verts[v++] = (Vertex){{topW/2, h, -d/2}, blueSide};
+    verts[v++] = (Vertex){{topW/2, h, d/2}, blueSide};
+
+    verts[v++] = (Vertex){{-botW/2, 0, -d/2}, blueSide};
+    verts[v++] = (Vertex){{-botW/2, 0, d/2}, blueSide};
+    verts[v++] = (Vertex){{-topW/2, h, d/2}, blueSide};
+    verts[v++] = (Vertex){{-botW/2, 0, -d/2}, blueSide};
+    verts[v++] = (Vertex){{-topW/2, h, d/2}, blueSide};
+    verts[v++] = (Vertex){{-topW/2, h, -d/2}, blueSide};
+
+    verts[v++] = (Vertex){{-topW/2, h, d/2}, blueTop};
+    verts[v++] = (Vertex){{topW/2, h, d/2}, blueTop};
+    verts[v++] = (Vertex){{topW/2, h, -d/2}, blueTop};
+    verts[v++] = (Vertex){{-topW/2, h, d/2}, blueTop};
+    verts[v++] = (Vertex){{topW/2, h, -d/2}, blueTop};
+    verts[v++] = (Vertex){{-topW/2, h, -d/2}, blueTop};
+
+    verts[v++] = (Vertex){{-botW/2, 0, -d/2}, blueBot};
+    verts[v++] = (Vertex){{botW/2, 0, -d/2}, blueBot};
+    verts[v++] = (Vertex){{botW/2, 0, d/2}, blueBot};
+    verts[v++] = (Vertex){{-botW/2, 0, -d/2}, blueBot};
+    verts[v++] = (Vertex){{botW/2, 0, d/2}, blueBot};
+    verts[v++] = (Vertex){{-botW/2, 0, d/2}, blueBot};
+
+    *count = v;
+    return [device newBufferWithBytes:verts length:sizeof(Vertex) * v options:MTLResourceStorageModeShared];
 }
 
 @end

@@ -122,6 +122,29 @@ static NSData *makeWav(float *samples, int count, int sampleRate) {
         _enemyGunSound = [[NSSound alloc] initWithData:wav];
         free(buf);
     }
+
+    // Pickup sound - satisfying "ding" with harmonic tones
+    {
+        int count = (int)(sr * 0.4);
+        float *buf = calloc(count, sizeof(float));
+        for (int i = 0; i < count; i++) {
+            float t = (float)i / sr;
+            // Main chime frequency (high pitched)
+            float env = expf(-t * 8.0f);
+            float chime = sinf(2 * M_PI * 880 * t) * env * 0.4f;  // A5
+            chime += sinf(2 * M_PI * 1320 * t) * env * 0.3f;      // E6 (fifth)
+            chime += sinf(2 * M_PI * 1760 * t) * env * 0.2f;      // A6 (octave)
+            // Add a subtle rising sweep
+            float sweepEnv = expf(-t * 12.0f);
+            float sweep = sinf(2 * M_PI * (600 + t * 800) * t) * sweepEnv * 0.15f;
+            buf[i] = chime + sweep;
+            if (buf[i] > 0.9f) buf[i] = 0.9f;
+            if (buf[i] < -0.9f) buf[i] = -0.9f;
+        }
+        NSData *wav = makeWav(buf, count, sr);
+        _pickupSound = [[NSSound alloc] initWithData:wav];
+        free(buf);
+    }
 }
 
 - (void)playGunSound {
@@ -146,6 +169,13 @@ static NSData *makeWav(float *samples, int count, int sampleRate) {
     if (_footstepSound) {
         [_footstepSound stop];
         [_footstepSound play];
+    }
+}
+
+- (void)playPickupSound {
+    if (_pickupSound) {
+        [_pickupSound stop];
+        [_pickupSound play];
     }
 }
 

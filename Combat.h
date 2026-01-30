@@ -6,6 +6,7 @@
 #import <simd/simd.h>
 #import "GameConfig.h"
 #import "GameTypes.h"
+#import "WeaponSystem.h"
 
 // Hit result types for processPlayerShooting
 typedef enum {
@@ -33,7 +34,15 @@ static const int PVP_DAMAGE = 25;  // 4 hits to kill from 100 HP
 
 // Process player shooting - returns hit result info
 // In multiplayer mode, also checks for PvP hits
+// Uses weapon system for damage calculations and spread
 CombatHitResult processPlayerShooting(simd_float3 camPos, float camYaw, float camPitch);
+
+// Process a single projectile hit (for weapons with spread)
+// Returns hit result for the projectile direction
+CombatHitResult processProjectileHit(simd_float3 muzzle, simd_float3 dir, int damage, float range);
+
+// Apply splash damage at a point (for rocket launcher)
+void applySplashDamage(simd_float3 hitPoint, float radius, int damage);
 
 // Check if a ray hits a remote player's hitbox
 // Returns YES if shot hit remote player, sets hitDistance

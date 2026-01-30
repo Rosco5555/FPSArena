@@ -8,6 +8,8 @@
 #import "LobbyView.h"
 #import "MultiplayerController.h"
 #import "GameState.h"
+#import "Enemy.h"
+#import "PickupSystem.h"
 
 // Game controller that manages lobby and game transitions
 @interface GameController : NSObject <LobbyDelegate>
@@ -64,7 +66,12 @@
         [state resetForMultiplayer];
     } else {
         [state resetGame];
+        // Initialize bot AI for single player mode
+        initializeBotAI();
     }
+
+    // Reset pickups for new game
+    [[PickupSystem shared] resetPickups];
 
     // Create game view
     _metalView = [[DraggableMetalView alloc] initWithFrame:_window.contentView.bounds device:_device];

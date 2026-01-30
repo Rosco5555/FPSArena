@@ -3,6 +3,7 @@
 #import "GameState.h"
 #import "SoundManager.h"
 #import "MultiplayerController.h"
+#import "WeaponSystem.h"
 
 @implementation DraggableMetalView
 
@@ -65,6 +66,7 @@
 
     if (key == 27) {
         _escapedLock = !_escapedLock;
+        state.isPaused = _escapedLock;  // Pause game when escape lock is active
         if (_escapedLock) {
             _controlsActive = NO;
             CGAssociateMouseAndMouseCursorPosition(true);
@@ -84,6 +86,7 @@
         case 'd': _keyD = YES; break;
         case 'r':
             if (state.gameOver && !state.gameWon) {
+                // Game over - R key respawns/restarts
                 if (state.isMultiplayer) {
                     // In multiplayer, respawn is handled automatically by timer
                     // But pressing R can trigger manual respawn request
@@ -98,6 +101,9 @@
                                      velocityX:&_velocityX velocityY:&_velocityY velocityZ:&_velocityZ
                                       onGround:&_onGround];
                 }
+            } else if (!state.gameOver) {
+                // Not dead - R key reloads weapon
+                [[WeaponSystem shared] reload];
             }
             break;
         case ' ':
@@ -110,6 +116,27 @@
             if (state.playerNearDoor && !state.gameOver) {
                 state.doorOpen = !state.doorOpen;
                 [[SoundManager shared] playDoorSound];
+            }
+            break;
+        // Weapon switching with number keys 1-4
+        case '1':
+            if (!state.gameOver) {
+                [[WeaponSystem shared] switchWeapon:WeaponTypePistol];
+            }
+            break;
+        case '2':
+            if (!state.gameOver) {
+                [[WeaponSystem shared] switchWeapon:WeaponTypeShotgun];
+            }
+            break;
+        case '3':
+            if (!state.gameOver) {
+                [[WeaponSystem shared] switchWeapon:WeaponTypeAssaultRifle];
+            }
+            break;
+        case '4':
+            if (!state.gameOver) {
+                [[WeaponSystem shared] switchWeapon:WeaponTypeRocketLauncher];
             }
             break;
     }
