@@ -258,11 +258,16 @@
 - (void)handleLocalDeath {
     GameState *state = [GameState shared];
 
+    // Mark player as dead
+    state.gameOver = YES;
+    NSLog(@"[DEATH] Local player died! Sending kill notification for player %d", state.localPlayerId);
+
     // Send death notification (kill stats updated via didReceiveKill callback)
     [_networkManager sendKill:(uint32_t)state.localPlayerId];
 
     // Start respawn timer
     state.localRespawnTimer = RESPAWN_DELAY;
+    NSLog(@"[DEATH] Respawn timer set to %d frames", RESPAWN_DELAY);
 }
 
 - (void)sendLocalPlayerDeath {

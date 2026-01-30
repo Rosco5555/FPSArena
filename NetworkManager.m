@@ -534,7 +534,12 @@ typedef struct {
 }
 
 - (void)sendKill:(uint32_t)victimId {
-    if (_mode == NetworkModeNone) return;
+    if (_mode == NetworkModeNone) {
+        NSLog(@"[NET] sendKill: mode is None, not sending");
+        return;
+    }
+
+    NSLog(@"[NET] sendKill: Sending kill packet for victim %u", victimId);
 
     GamePacket packet;
     memset(&packet, 0, sizeof(packet));
@@ -1076,13 +1081,18 @@ typedef struct {
 
         case PacketTypeKill: {
             uint32_t victimId = packet->player.playerId;
-            uint32_t killerId = player ? player.playerId : _localPlayerId;
+            uint32_t killerId = _localPlayerId;  // The receiver is the killer in a 2-player game
+
+            NSLog(@"[NET] Received kill packet: victim=%u, killer=%u (local), delegate=%@", victimId, killerId, _delegate);
 
             if ([_delegate respondsToSelector:@selector(networkManager:didReceiveKill:killedBy:)]) {
+                NSLog(@"[NET] Calling didReceiveKill delegate");
                 [_delegate networkManager:self didReceiveKill:victimId killedBy:killerId];
+            } else {
+                NSLog(@"[NET] WARNING: delegate does not respond to didReceiveKill!");
             }
             if (_mode == NetworkModeHost) {
-                [self relayReliablePacketToOtherPlayers:packet exceptPlayer:killerId];
+                [self relayReliablePacketToOtherPlayers:packet exceptPlayer:victimId];
             }
             break;
         }
