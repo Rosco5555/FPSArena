@@ -241,10 +241,11 @@
             float rgtX = cosf(_metalView.camYaw);
             float rgtZ = sinf(_metalView.camYaw);
 
+            float strafeAccel = MOVE_ACCEL * STRAFE_MULTIPLIER;
             if (_metalView.keyW) { _metalView.velocityX += fwdX * MOVE_ACCEL; _metalView.velocityZ += fwdZ * MOVE_ACCEL; }
             if (_metalView.keyS) { _metalView.velocityX -= fwdX * MOVE_ACCEL; _metalView.velocityZ -= fwdZ * MOVE_ACCEL; }
-            if (_metalView.keyA) { _metalView.velocityX -= rgtX * MOVE_ACCEL; _metalView.velocityZ -= rgtZ * MOVE_ACCEL; }
-            if (_metalView.keyD) { _metalView.velocityX += rgtX * MOVE_ACCEL; _metalView.velocityZ += rgtZ * MOVE_ACCEL; }
+            if (_metalView.keyA) { _metalView.velocityX -= rgtX * strafeAccel; _metalView.velocityZ -= rgtZ * strafeAccel; }
+            if (_metalView.keyD) { _metalView.velocityX += rgtX * strafeAccel; _metalView.velocityZ += rgtZ * strafeAccel; }
         }
 
         // Clamp horizontal speed

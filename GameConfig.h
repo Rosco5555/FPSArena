@@ -16,6 +16,9 @@ static const float CROUCH_HEIGHT = 1.0f;           // Height when crouched
 static const float CROUCH_SPEED_MULTIPLIER = 0.5f; // Move at 50% speed when crouched
 static const float CROUCH_TRANSITION_SPEED = 0.1f; // How fast to transition to/from crouch
 
+// Strafing
+static const float STRAFE_MULTIPLIER = 1.8f;       // Strafe speed multiplier
+
 // Combat
 static const int PLAYER_MAX_HEALTH = 100;
 static const int ENEMY_MAX_HEALTH = 30;
