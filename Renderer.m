@@ -519,6 +519,14 @@
             if (_metalView.keySpace) {
                 _metalView.velocityY = JUMP_VELOCITY;
                 _metalView.onGround = NO;
+
+                // Bhop acceleration - boost horizontal speed each hop
+                float hSpeed = sqrtf(_metalView.velocityX * _metalView.velocityX + _metalView.velocityZ * _metalView.velocityZ);
+                if (hSpeed > 0.01f && hSpeed < BHOP_MAX_SPEED) {
+                    float boost = fminf(BHOP_SPEED_BOOST, BHOP_MAX_SPEED / hSpeed);
+                    _metalView.velocityX *= boost;
+                    _metalView.velocityZ *= boost;
+                }
             }
         }
 

@@ -19,6 +19,10 @@ static const float CROUCH_TRANSITION_SPEED = 0.1f; // How fast to transition to/
 // Strafing
 static const float STRAFE_MULTIPLIER = 2.2f;       // Strafe speed multiplier
 
+// Bunny hopping
+static const float BHOP_SPEED_BOOST = 1.08f;       // Speed multiplier per bhop (8% faster each hop)
+static const float BHOP_MAX_SPEED = 0.45f;         // Maximum bhop speed cap
+
 // Combat
 static const int PLAYER_MAX_HEALTH = 100;
 static const int ENEMY_MAX_HEALTH = 30;
