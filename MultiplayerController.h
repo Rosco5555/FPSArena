@@ -19,6 +19,7 @@
 - (void)hostGame;
 - (void)joinGameAtHost:(NSString *)hostIP;
 - (void)startGame;  // Host only
+- (void)clientStartGame;  // Client only - called when receiving game start
 - (void)leaveGame;
 
 // Called every frame to sync network state

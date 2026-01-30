@@ -175,7 +175,21 @@
 - (void)networkManager:(id)manager didReceiveGameStart:(uint32_t)hostPlayerId {
     NSLog(@"[NETWORK] Received game start signal from host!");
     // Client starts the game when host sends game start
+    [[MultiplayerController shared] clientStartGame];
     [self startGameWithMultiplayer:YES];
+}
+
+- (void)networkManager:(id)manager didReceiveStateUpdate:(PlayerNetState)state fromPlayer:(uint32_t)playerId {
+    // Forward state updates to GameState for rendering remote player
+    GameState *gameState = [GameState shared];
+    gameState.remotePlayerPosX = state.posX;
+    gameState.remotePlayerPosY = state.posY;
+    gameState.remotePlayerPosZ = state.posZ;
+    gameState.remotePlayerCamYaw = state.camYaw;
+    gameState.remotePlayerCamPitch = state.camPitch;
+    gameState.remotePlayerHealth = state.health;
+    gameState.remotePlayerShooting = (state.isShooting != 0);
+    gameState.remotePlayerAlive = YES;
 }
 
 #pragma mark - InputViewDelegate
@@ -189,20 +203,44 @@
 
 // Debug log file path
 static NSString *kLogFilePath = @"/tmp/fpsgame_debug.log";
+static NSString *kTerminalMarker = @"FPSGAME_DEBUG_TERMINAL";
+
+void closeDebugTerminal(void) {
+    // Close only terminal windows that we created (identified by our marker)
+    NSString *script = [NSString stringWithFormat:
+        @"tell application \"Terminal\"\n"
+        @"    set windowList to every window\n"
+        @"    repeat with w in windowList\n"
+        @"        set tabList to every tab of w\n"
+        @"        repeat with t in tabList\n"
+        @"            if history of t contains \"%@\" then\n"
+        @"                close w\n"
+        @"                exit repeat\n"
+        @"            end if\n"
+        @"        end repeat\n"
+        @"    end repeat\n"
+        @"end tell", kTerminalMarker];
+
+    NSAppleScript *appleScript = [[NSAppleScript alloc] initWithSource:script];
+    [appleScript executeAndReturnError:nil];
+}
 
 void setupDebugLogging(void) {
+    // Close any existing debug terminals first
+    closeDebugTerminal();
+
     // Clear old log file
     [@"" writeToFile:kLogFilePath atomically:YES encoding:NSUTF8StringEncoding error:nil];
 
     // Redirect stderr to log file (NSLog uses stderr)
     freopen([kLogFilePath UTF8String], "a", stderr);
 
-    // Open Terminal window to tail the log
+    // Open Terminal window to tail the log (marked with our identifier for cleanup)
     NSString *script = [NSString stringWithFormat:
         @"tell application \"Terminal\"\n"
         @"    activate\n"
-        @"    do script \"tail -f %@\"\n"
-        @"end tell", kLogFilePath];
+        @"    do script \"echo '%@' && tail -f %@\"\n"
+        @"end tell", kTerminalMarker, kLogFilePath];
 
     NSAppleScript *appleScript = [[NSAppleScript alloc] initWithSource:script];
     [appleScript executeAndReturnError:nil];

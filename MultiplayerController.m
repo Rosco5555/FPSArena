@@ -71,6 +71,16 @@
     NSLog(@"Game started!");
 }
 
+- (void)clientStartGame {
+    // Called on client when receiving game start from host
+    GameState *state = [GameState shared];
+    [state resetForMultiplayer];
+    _isInGame = YES;
+    _isConnected = YES;
+
+    NSLog(@"Client game started!");
+}
+
 - (void)leaveGame {
     [_networkManager disconnect];
 
