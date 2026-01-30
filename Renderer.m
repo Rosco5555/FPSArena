@@ -1293,6 +1293,12 @@
         float mapRadius = 0.22f;    // Size of minimap
         float mapScale = mapRadius / (ARENA_SIZE * 1.2f);  // World to screen scale
 
+        // Clipping bounds
+        float clipMinX = mapCenterX - mapRadius;
+        float clipMaxX = mapCenterX + mapRadius;
+        float clipMinY = mapCenterY - mapRadius;
+        float clipMaxY = mapCenterY + mapRadius;
+
         // Player position and rotation
         float playerX = _metalView.posX;
         float playerZ = _metalView.posZ;
@@ -1304,9 +1310,8 @@
         simd_float3 wallColor = {0.35f, 0.35f, 0.4f};
         simd_float3 playerColor = {0.2f, 0.8f, 0.3f};
         simd_float3 enemyColor = {0.9f, 0.2f, 0.2f};
-        simd_float3 allyColor = {0.2f, 0.5f, 0.9f};
 
-        // Helper macro to add a quad
+        // Helper macro to add a quad (axis-aligned, for UI elements)
         #define MINIMAP_QUAD(x0,y0,x1,y1,col) do { \
             minimapVerts[mv++] = (Vertex){{x0,y0,0},col}; \
             minimapVerts[mv++] = (Vertex){{x1,y0,0},col}; \
@@ -1316,17 +1321,38 @@
             minimapVerts[mv++] = (Vertex){{x0,y1,0},col}; \
         } while(0)
 
+        // Helper to clamp a value
+        #define CLAMP_VAL(v, lo, hi) ((v) < (lo) ? (lo) : ((v) > (hi) ? (hi) : (v)))
+
         // Helper to transform world coords to minimap coords (rotated around player)
         // Player always faces up on minimap, world rotates around them
         #define WORLD_TO_MAP(wx, wz, outX, outY) do { \
             float dx = (wx) - playerX; \
             float dz = (wz) - playerZ; \
-            float cosYaw = cosf(playerYaw - M_PI_2); \
-            float sinYaw = sinf(playerYaw - M_PI_2); \
-            float rotX = dx * cosYaw + dz * sinYaw; \
-            float rotZ = -dx * sinYaw + dz * cosYaw; \
+            float cosYaw = cosf(-playerYaw); \
+            float sinYaw = sinf(-playerYaw); \
+            float rotX = dx * cosYaw - dz * sinYaw; \
+            float rotZ = dx * sinYaw + dz * cosYaw; \
             outX = mapCenterX + rotX * mapScale; \
-            outY = mapCenterY + rotZ * mapScale; \
+            outY = mapCenterY - rotZ * mapScale; \
+        } while(0)
+
+        // Helper to add a clipped quad (for world structures)
+        #define MINIMAP_CLIPPED_QUAD(wx1,wy1,wx2,wy2,wx3,wy3,wx4,wy4,col) do { \
+            float cx1 = CLAMP_VAL(wx1, clipMinX, clipMaxX); \
+            float cy1 = CLAMP_VAL(wy1, clipMinY, clipMaxY); \
+            float cx2 = CLAMP_VAL(wx2, clipMinX, clipMaxX); \
+            float cy2 = CLAMP_VAL(wy2, clipMinY, clipMaxY); \
+            float cx3 = CLAMP_VAL(wx3, clipMinX, clipMaxX); \
+            float cy3 = CLAMP_VAL(wy3, clipMinY, clipMaxY); \
+            float cx4 = CLAMP_VAL(wx4, clipMinX, clipMaxX); \
+            float cy4 = CLAMP_VAL(wy4, clipMinY, clipMaxY); \
+            minimapVerts[mv++] = (Vertex){{cx1, cy1, 0}, col}; \
+            minimapVerts[mv++] = (Vertex){{cx2, cy2, 0}, col}; \
+            minimapVerts[mv++] = (Vertex){{cx3, cy3, 0}, col}; \
+            minimapVerts[mv++] = (Vertex){{cx1, cy1, 0}, col}; \
+            minimapVerts[mv++] = (Vertex){{cx3, cy3, 0}, col}; \
+            minimapVerts[mv++] = (Vertex){{cx4, cy4, 0}, col}; \
         } while(0)
 
         // Draw background (square)
@@ -1345,7 +1371,7 @@
         MINIMAP_QUAD(mapCenterX + mapRadius, mapCenterY - mapRadius,
                      mapCenterX + mapRadius + borderW, mapCenterY + mapRadius, borderColor);
 
-        // Draw map structures (simplified rectangles)
+        // Draw map structures (simplified rectangles) with clipping
         // Command building
         {
             float wx1, wy1, wx2, wy2, wx3, wy3, wx4, wy4;
@@ -1355,13 +1381,7 @@
             WORLD_TO_MAP(CMD_BUILDING_X + hw, CMD_BUILDING_Z - hd, wx2, wy2);
             WORLD_TO_MAP(CMD_BUILDING_X + hw, CMD_BUILDING_Z + hd, wx3, wy3);
             WORLD_TO_MAP(CMD_BUILDING_X - hw, CMD_BUILDING_Z + hd, wx4, wy4);
-            // Draw as two triangles
-            minimapVerts[mv++] = (Vertex){{wx1, wy1, 0}, wallColor};
-            minimapVerts[mv++] = (Vertex){{wx2, wy2, 0}, wallColor};
-            minimapVerts[mv++] = (Vertex){{wx3, wy3, 0}, wallColor};
-            minimapVerts[mv++] = (Vertex){{wx1, wy1, 0}, wallColor};
-            minimapVerts[mv++] = (Vertex){{wx3, wy3, 0}, wallColor};
-            minimapVerts[mv++] = (Vertex){{wx4, wy4, 0}, wallColor};
+            MINIMAP_CLIPPED_QUAD(wx1, wy1, wx2, wy2, wx3, wy3, wx4, wy4, wallColor);
         }
 
         // Guard towers (4 corners)
@@ -1378,12 +1398,7 @@
             WORLD_TO_MAP(towerPos[t][0] + tw, towerPos[t][1] - tw, wx2, wy2);
             WORLD_TO_MAP(towerPos[t][0] + tw, towerPos[t][1] + tw, wx3, wy3);
             WORLD_TO_MAP(towerPos[t][0] - tw, towerPos[t][1] + tw, wx4, wy4);
-            minimapVerts[mv++] = (Vertex){{wx1, wy1, 0}, wallColor};
-            minimapVerts[mv++] = (Vertex){{wx2, wy2, 0}, wallColor};
-            minimapVerts[mv++] = (Vertex){{wx3, wy3, 0}, wallColor};
-            minimapVerts[mv++] = (Vertex){{wx1, wy1, 0}, wallColor};
-            minimapVerts[mv++] = (Vertex){{wx3, wy3, 0}, wallColor};
-            minimapVerts[mv++] = (Vertex){{wx4, wy4, 0}, wallColor};
+            MINIMAP_CLIPPED_QUAD(wx1, wy1, wx2, wy2, wx3, wy3, wx4, wy4, wallColor);
         }
 
         // Bunker
@@ -1395,12 +1410,7 @@
             WORLD_TO_MAP(BUNKER_X + hw, BUNKER_Z - hd, wx2, wy2);
             WORLD_TO_MAP(BUNKER_X + hw, BUNKER_Z + hd, wx3, wy3);
             WORLD_TO_MAP(BUNKER_X - hw, BUNKER_Z + hd, wx4, wy4);
-            minimapVerts[mv++] = (Vertex){{wx1, wy1, 0}, wallColor};
-            minimapVerts[mv++] = (Vertex){{wx2, wy2, 0}, wallColor};
-            minimapVerts[mv++] = (Vertex){{wx3, wy3, 0}, wallColor};
-            minimapVerts[mv++] = (Vertex){{wx1, wy1, 0}, wallColor};
-            minimapVerts[mv++] = (Vertex){{wx3, wy3, 0}, wallColor};
-            minimapVerts[mv++] = (Vertex){{wx4, wy4, 0}, wallColor};
+            MINIMAP_CLIPPED_QUAD(wx1, wy1, wx2, wy2, wx3, wy3, wx4, wy4, wallColor);
         }
 
         // Draw enemies as dots (single player mode)
@@ -1410,8 +1420,7 @@
                     float ex, ey;
                     WORLD_TO_MAP(state.enemyX[i], state.enemyZ[i], ex, ey);
                     // Clip to minimap bounds
-                    if (ex > mapCenterX - mapRadius && ex < mapCenterX + mapRadius &&
-                        ey > mapCenterY - mapRadius && ey < mapCenterY + mapRadius) {
+                    if (ex > clipMinX && ex < clipMaxX && ey > clipMinY && ey < clipMaxY) {
                         float dotSize = 0.012f;
                         MINIMAP_QUAD(ex - dotSize, ey - dotSize, ex + dotSize, ey + dotSize, enemyColor);
                     }
@@ -1424,21 +1433,18 @@
                 float rz = state.remotePlayerPosZ;
                 float ex, ey;
                 WORLD_TO_MAP(rx, rz, ex, ey);
-                if (ex > mapCenterX - mapRadius && ex < mapCenterX + mapRadius &&
-                    ey > mapCenterY - mapRadius && ey < mapCenterY + mapRadius) {
+                if (ex > clipMinX && ex < clipMaxX && ey > clipMinY && ey < clipMaxY) {
                     float dotSize = 0.012f;
                     MINIMAP_QUAD(ex - dotSize, ey - dotSize, ex + dotSize, ey + dotSize, enemyColor);
                 }
             }
         }
 
-        // Draw player (triangle pointing in look direction - always centered)
+        // Draw player (triangle pointing in look direction - always centered, pointing up)
         {
             float triSize = 0.018f;
-            // Player is always at center, pointing up (forward)
             float px = mapCenterX;
             float py = mapCenterY;
-            // Triangle pointing up
             minimapVerts[mv++] = (Vertex){{px, py + triSize * 1.5f, 0}, playerColor};
             minimapVerts[mv++] = (Vertex){{px - triSize, py - triSize, 0}, playerColor};
             minimapVerts[mv++] = (Vertex){{px + triSize, py - triSize, 0}, playerColor};
@@ -1453,7 +1459,9 @@
 
         #undef MAX_MINIMAP_VERTS
         #undef MINIMAP_QUAD
+        #undef CLAMP_VAL
         #undef WORLD_TO_MAP
+        #undef MINIMAP_CLIPPED_QUAD
     }
 
     // Draw E prompt
