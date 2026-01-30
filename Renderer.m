@@ -1099,12 +1099,17 @@
         float sinRP = sinf(rpYaw);
         float playerScale = 1.4f;
 
+        // Remote player Y is eye position - convert to model position
+        // Model has feet at -0.6 (scaled: -0.84), so we place model origin at:
+        // footY + 0.84 = (eyeY - PLAYER_HEIGHT) + 0.84
+        float modelY = rpY - PLAYER_HEIGHT + (0.6f * playerScale);
+
         simd_float4x4 rpRot = {{
             {cosRP * playerScale, 0, -sinRP * playerScale, 0}, {0, playerScale, 0, 0},
             {sinRP * playerScale, 0, cosRP * playerScale, 0}, {0, 0, 0, 1}
         }};
         simd_float4x4 rpTrans = {{
-            {1, 0, 0, 0}, {0, 1, 0, 0}, {0, 0, 1, 0}, {rpX, rpY, rpZ, 1}
+            {1, 0, 0, 0}, {0, 1, 0, 0}, {0, 0, 1, 0}, {rpX, modelY, rpZ, 1}
         }};
         simd_float4x4 rpModel = simd_mul(rpTrans, rpRot);
         simd_float4x4 rpMvp = simd_mul(proj, simd_mul(viewMat, rpModel));
@@ -1114,7 +1119,8 @@
         [encoder drawPrimitives:MTLPrimitiveTypeTriangle vertexStart:0 vertexCount:_remotePlayerVertexCount];
 
         // Check if remote player is visible (not behind walls) before drawing health bar
-        simd_float3 rpPos = {rpX, rpY + 0.5f, rpZ};
+        // Use chest height of the model for visibility check
+        simd_float3 rpPos = {rpX, modelY + 0.3f, rpZ};
         simd_float3 toRP = rpPos - camPos;
         float rpDist = simd_length(toRP);
         simd_float3 rpDir = toRP / rpDist;
@@ -1178,7 +1184,8 @@
 
         // Only draw health bar if remote player is visible
         if (rpVisible) {
-            float hbY = rpY + 1.3f;
+            // Position health bar above head (model head top is at modelY + 1.12)
+            float hbY = modelY + 1.3f;
             simd_float4x4 hbModel = {{
                 {rx, ry, rz, 0}, {ux, uy, uz, 0}, {-fx, -fy, -fz, 0}, {rpX, hbY, rpZ, 1}
             }};
