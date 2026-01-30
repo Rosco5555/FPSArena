@@ -718,8 +718,8 @@
     simd_float3 bodyDark = {0.5f, 0.1f, 0.1f};
     simd_float3 bodyMid = {0.7f, 0.15f, 0.15f};
     simd_float3 bodyLight = {0.8f, 0.2f, 0.2f};
-    simd_float3 skinTone = {0.8f, 0.65f, 0.5f};
-    simd_float3 skinDark = {0.65f, 0.5f, 0.4f};
+    simd_float3 skinTone = {0.45f, 0.3f, 0.2f};   // Brown skin
+    simd_float3 skinDark = {0.35f, 0.22f, 0.15f}; // Darker brown
     simd_float3 gunC1 = {0.2f, 0.2f, 0.2f};
     simd_float3 gunC2 = {0.1f, 0.1f, 0.1f};
     simd_float3 gunC3 = {0.25f, 0.25f, 0.25f};
@@ -744,8 +744,8 @@
     simd_float3 bodyDark = {0.1f, 0.1f, 0.5f};
     simd_float3 bodyMid = {0.15f, 0.15f, 0.7f};
     simd_float3 bodyLight = {0.2f, 0.2f, 0.8f};
-    simd_float3 skinTone = {0.8f, 0.65f, 0.5f};
-    simd_float3 skinDark = {0.65f, 0.5f, 0.4f};
+    simd_float3 skinTone = {0.8f, 0.65f, 0.5f};   // Light skin
+    simd_float3 skinDark = {0.65f, 0.5f, 0.4f};  // Darker light skin
     simd_float3 gunC1 = {0.2f, 0.2f, 0.2f};
     simd_float3 gunC2 = {0.1f, 0.1f, 0.1f};
     simd_float3 gunC3 = {0.25f, 0.25f, 0.25f};
