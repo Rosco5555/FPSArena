@@ -39,6 +39,8 @@ static const CGFloat kHostListItemHeight = 35.0;
         _playerOneReady = NO;
         _playerTwoReady = NO;
         _hostIPAddress = [self getLocalIPAddress];
+        _ipInputText = [NSMutableString stringWithString:@""];
+        _ipInputFocused = NO;
     }
     return self;
 }
@@ -218,15 +220,66 @@ static const CGFloat kHostListItemHeight = 35.0;
               color:kAccentColor
            centered:YES];
 
-    // Draw status
-    [self drawText:@"Scanning for games..."
+    // Draw IP input section
+    [self drawText:@"Enter IP Address:"
             atPoint:NSMakePoint(centerX, centerY + 100)
            fontSize:kStatusFontSize
               color:kTextColor
            centered:YES];
 
+    // Draw IP input field
+    CGFloat inputWidth = 200.0;
+    CGFloat inputHeight = 35.0;
+    NSRect inputRect = NSMakeRect(centerX - inputWidth/2 - 40, centerY + 55, inputWidth, inputHeight);
+
+    // Input field background
+    NSColor *inputBgColor = _ipInputFocused ? [NSColor colorWithRed:0.25 green:0.25 blue:0.3 alpha:1.0] : kButtonColor;
+    [inputBgColor setFill];
+    NSRectFill(inputRect);
+
+    // Input field border
+    NSColor *borderColor = _ipInputFocused ? kAccentColor : [NSColor grayColor];
+    [borderColor setStroke];
+    NSBezierPath *inputBorder = [NSBezierPath bezierPathWithRect:inputRect];
+    [inputBorder setLineWidth:_ipInputFocused ? 2.0 : 1.0];
+    [inputBorder stroke];
+
+    // Draw input text or placeholder
+    NSString *displayText = _ipInputText.length > 0 ? _ipInputText : @"192.168.1.x";
+    NSColor *textColor = _ipInputText.length > 0 ? kTextColor : [NSColor grayColor];
+    [self drawText:displayText
+            atPoint:NSMakePoint(inputRect.origin.x + 10, NSMidY(inputRect))
+           fontSize:kButtonFontSize
+              color:textColor
+           centered:NO];
+
+    // Draw cursor if focused
+    if (_ipInputFocused) {
+        NSFont *font = [NSFont fontWithName:@"Helvetica-Bold" size:kButtonFontSize];
+        if (!font) font = [NSFont boldSystemFontOfSize:kButtonFontSize];
+        NSDictionary *attrs = @{NSFontAttributeName: font};
+        NSSize textSize = [_ipInputText sizeWithAttributes:attrs];
+        CGFloat cursorX = inputRect.origin.x + 10 + textSize.width + 2;
+        [[NSColor whiteColor] setFill];
+        NSRectFill(NSMakeRect(cursorX, inputRect.origin.y + 8, 2, inputHeight - 16));
+    }
+
+    // Draw CONNECT button next to input
+    CGFloat connectWidth = 80.0;
+    NSRect connectRect = NSMakeRect(centerX + inputWidth/2 - 30, centerY + 55, connectWidth, inputHeight);
+    [self drawButton:@"CONNECT"
+              atRect:connectRect
+             hovered:(_hoveredButtonIndex == 2)];
+
+    // Draw "or scan for games" text
+    [self drawText:@"— or scan for games —"
+            atPoint:NSMakePoint(centerX, centerY + 25)
+           fontSize:14
+              color:[NSColor grayColor]
+           centered:YES];
+
     // Draw host list
-    CGFloat listStartY = centerY + 50;
+    CGFloat listStartY = centerY - 10;
     if (_discoveredHosts.count == 0) {
         [self drawText:@"No games found"
                 atPoint:NSMakePoint(centerX, listStartY)
@@ -246,7 +299,7 @@ static const CGFloat kHostListItemHeight = 35.0;
     }
 
     // Draw buttons at bottom
-    CGFloat buttonY = centerY - 120;
+    CGFloat buttonY = centerY - 140;
     CGFloat buttonWidth = 90;
 
     [self drawButton:@"REFRESH"
@@ -404,7 +457,7 @@ static const CGFloat kHostListItemHeight = 35.0;
             break;
         }
         case LobbyStateJoining: {
-            CGFloat buttonY = centerY - 120;
+            CGFloat buttonY = centerY - 140;
             CGFloat buttonWidth = 90;
 
             NSRect refreshRect = NSMakeRect(centerX - buttonWidth - 10, buttonY, buttonWidth, kButtonHeight);
@@ -415,6 +468,15 @@ static const CGFloat kHostListItemHeight = 35.0;
             NSRect backRect = NSMakeRect(centerX + 10, buttonY, buttonWidth, kButtonHeight);
             if (NSPointInRect(point, backRect)) {
                 return 1;
+            }
+
+            // CONNECT button
+            CGFloat inputWidth = 200.0;
+            CGFloat inputHeight = 35.0;
+            CGFloat connectWidth = 80.0;
+            NSRect connectRect = NSMakeRect(centerX + inputWidth/2 - 30, centerY + 55, connectWidth, inputHeight);
+            if (NSPointInRect(point, connectRect)) {
+                return 2;
             }
             break;
         }
@@ -478,6 +540,23 @@ static const CGFloat kHostListItemHeight = 35.0;
 - (void)mouseDown:(NSEvent *)event {
     NSPoint location = [self convertPoint:[event locationInWindow] fromView:nil];
 
+    // Check IP input field click (joining state)
+    if (_state == LobbyStateJoining) {
+        CGFloat centerX = NSMidX(self.bounds);
+        CGFloat centerY = NSMidY(self.bounds);
+        CGFloat inputWidth = 200.0;
+        CGFloat inputHeight = 35.0;
+        NSRect inputRect = NSMakeRect(centerX - inputWidth/2 - 40, centerY + 55, inputWidth, inputHeight);
+
+        if (NSPointInRect(location, inputRect)) {
+            _ipInputFocused = YES;
+            [self setNeedsDisplay:YES];
+            return;
+        } else {
+            _ipInputFocused = NO;
+        }
+    }
+
     // Check host list first (joining state)
     NSInteger hostIndex = [self hostIndexAtPoint:location];
     if (hostIndex >= 0 && hostIndex < (NSInteger)_discoveredHosts.count) {
@@ -490,7 +569,10 @@ static const CGFloat kHostListItemHeight = 35.0;
 
     // Check buttons
     NSInteger buttonIndex = [self buttonIndexAtPoint:location];
-    if (buttonIndex < 0) return;
+    if (buttonIndex < 0) {
+        [self setNeedsDisplay:YES];
+        return;
+    }
 
     switch (_state) {
         case LobbyStateMainMenu:
@@ -535,7 +617,16 @@ static const CGFloat kHostListItemHeight = 35.0;
                     }
                     break;
                 case 1: // BACK
+                    _ipInputFocused = NO;
+                    [_ipInputText setString:@""];
                     [self transitionToState:LobbyStateMainMenu];
+                    break;
+                case 2: // CONNECT
+                    if (_ipInputText.length > 0) {
+                        if ([_delegate respondsToSelector:@selector(lobbyDidConnectToHost:)]) {
+                            [_delegate lobbyDidConnectToHost:[_ipInputText copy]];
+                        }
+                    }
                     break;
             }
             break;
@@ -563,6 +654,40 @@ static const CGFloat kHostListItemHeight = 35.0;
     _hoveredButtonIndex = -1;
     _hoveredHostIndex = -1;
     [self setNeedsDisplay:YES];
+}
+
+#pragma mark - Keyboard Events
+
+- (void)keyDown:(NSEvent *)event {
+    if (_state == LobbyStateJoining && _ipInputFocused) {
+        NSString *chars = event.characters;
+        unichar key = chars.length > 0 ? [chars characterAtIndex:0] : 0;
+
+        if (key == 27) { // Escape - unfocus
+            _ipInputFocused = NO;
+            [self setNeedsDisplay:YES];
+        } else if (key == 13 || key == 3) { // Enter/Return - connect
+            if (_ipInputText.length > 0) {
+                if ([_delegate respondsToSelector:@selector(lobbyDidConnectToHost:)]) {
+                    [_delegate lobbyDidConnectToHost:[_ipInputText copy]];
+                }
+            }
+        } else if (key == 127 || key == 8) { // Backspace/Delete
+            if (_ipInputText.length > 0) {
+                [_ipInputText deleteCharactersInRange:NSMakeRange(_ipInputText.length - 1, 1)];
+                [self setNeedsDisplay:YES];
+            }
+        } else if (_ipInputText.length < 15) { // Max IP length
+            // Only allow digits and dots
+            if ((key >= '0' && key <= '9') || key == '.') {
+                [_ipInputText appendFormat:@"%c", key];
+                [self setNeedsDisplay:YES];
+            }
+        }
+        return;
+    }
+
+    [super keyDown:event];
 }
 
 @end
