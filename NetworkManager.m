@@ -1081,15 +1081,12 @@ typedef struct {
 
         case PacketTypeKill: {
             uint32_t victimId = packet->player.playerId;
-            uint32_t killerId = _localPlayerId;  // The receiver is the killer in a 2-player game
+            uint32_t killerId = _localPlayerId;  // The receiver is the killer
 
-            NSLog(@"[NET] Received kill packet: victim=%u, killer=%u (local), delegate=%@", victimId, killerId, _delegate);
+            NSLog(@"[NET] Received kill packet: victim=%u, killer=%u (local)", victimId, killerId);
 
             if ([_delegate respondsToSelector:@selector(networkManager:didReceiveKill:killedBy:)]) {
-                NSLog(@"[NET] Calling didReceiveKill delegate");
                 [_delegate networkManager:self didReceiveKill:victimId killedBy:killerId];
-            } else {
-                NSLog(@"[NET] WARNING: delegate does not respond to didReceiveKill!");
             }
             if (_mode == NetworkModeHost) {
                 [self relayReliablePacketToOtherPlayers:packet exceptPlayer:victimId];
