@@ -215,10 +215,39 @@
 
         if (gameState.playerHealth <= 0) {
             gameState.playerHealth = 0;
-            gameState.gameOver = YES;
-            gameState.localRespawnTimer = RESPAWN_DELAY;
-            NSLog(@"[NETWORK] Local player killed! Respawning in %d frames", RESPAWN_DELAY);
+            // Use MultiplayerController to handle death properly (sends kill notification)
+            [[MultiplayerController shared] sendLocalPlayerDeath];
         }
+    }
+}
+
+- (void)networkManager:(id)manager didReceiveKill:(uint32_t)victimId killedBy:(uint32_t)killerId {
+    GameState *gameState = [GameState shared];
+    NSLog(@"[NETWORK] Received kill: victim=%u, killer=%u, local=%d", victimId, killerId, gameState.localPlayerId);
+
+    // Update scoreboard
+    if (victimId == (uint32_t)gameState.localPlayerId) {
+        // We died, remote player gets a kill
+        gameState.remotePlayerKills++;
+        NSLog(@"[NETWORK] Remote player kills: %d", gameState.remotePlayerKills);
+    } else {
+        // Remote player died, we get a kill
+        gameState.localPlayerKills++;
+        NSLog(@"[NETWORK] Local player kills: %d", gameState.localPlayerKills);
+    }
+}
+
+- (void)networkManager:(id)manager didReceiveRespawn:(uint32_t)playerId atPosition:(PlayerNetState)netState {
+    GameState *gameState = [GameState shared];
+    NSLog(@"[NETWORK] Received respawn: player=%u at (%.1f, %.1f, %.1f)", playerId, netState.posX, netState.posY, netState.posZ);
+
+    // Remote player respawned
+    if (playerId != (uint32_t)gameState.localPlayerId) {
+        gameState.remotePlayerAlive = YES;
+        gameState.remotePlayerHealth = PLAYER_MAX_HEALTH;
+        gameState.remotePlayerPosX = netState.posX;
+        gameState.remotePlayerPosY = netState.posY;
+        gameState.remotePlayerPosZ = netState.posZ;
     }
 }
 
