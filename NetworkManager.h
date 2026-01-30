@@ -96,6 +96,7 @@ typedef struct {
 @property (nonatomic, copy) NSString *playerName;
 @property (nonatomic, copy) NSString *address;
 @property (nonatomic) int tcpSocket;
+@property (nonatomic) uint16_t udpPort;  // Discovered from first UDP packet
 @property (nonatomic) PlayerNetState lastState;
 @property (nonatomic) uint32_t lastSequence;
 @property (nonatomic) NSTimeInterval lastPacketTime;

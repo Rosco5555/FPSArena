@@ -28,6 +28,13 @@ typedef struct {
 @end
 
 @implementation RemotePlayer
+- (instancetype)init {
+    self = [super init];
+    if (self) {
+        _udpPort = 0;  // Will be discovered from first UDP packet
+    }
+    return self;
+}
 @end
 
 @interface NetworkManager () {
@@ -607,14 +614,17 @@ typedef struct {
     size_t totalLength = sizeof(header) + length;
 
     if (_mode == NetworkModeHost) {
-        // Broadcast to all connected clients via their addresses
+        // Broadcast to all connected clients via their discovered UDP ports
         NSArray *players = [_mutableConnectedPlayers copy];
         for (RemotePlayer *player in players) {
+            // Skip if we haven't discovered their UDP port yet
+            if (player.udpPort == 0) continue;
+
             struct sockaddr_in addr;
             memset(&addr, 0, sizeof(addr));
             addr.sin_family = AF_INET;
             inet_pton(AF_INET, [player.address UTF8String], &addr.sin_addr);
-            addr.sin_port = htons(NET_DEFAULT_PORT + player.playerId);  // Each client uses unique port
+            addr.sin_port = htons(player.udpPort);  // Use discovered port
 
             sendto(_udpSocket, _sendBuffer, totalLength, 0,
                    (struct sockaddr *)&addr, sizeof(addr));
@@ -952,7 +962,25 @@ typedef struct {
             if (_mode == NetworkModeHost && player) {
                 [self handlePlayerDisconnect:player];
             } else if (_mode == NetworkModeClient) {
-                [self handleHostDisconnect];
+                // Check if it's the host disconnecting or another player
+                if (length >= sizeof(GamePacket)) {
+                    GamePacket *disconnectPacket = (GamePacket *)data;
+                    uint32_t disconnectedPlayerId = disconnectPacket->player.playerId;
+                    if (disconnectedPlayerId == 1) {
+                        // Host disconnected
+                        [self handleHostDisconnect];
+                    } else {
+                        // Another player disconnected - notify delegate
+                        RemotePlayer *disconnectedPlayer = [[RemotePlayer alloc] init];
+                        disconnectedPlayer.playerId = disconnectedPlayerId;
+                        if ([_delegate respondsToSelector:@selector(networkManager:playerDidDisconnect:)]) {
+                            [_delegate networkManager:self playerDidDisconnect:disconnectedPlayer];
+                        }
+                    }
+                } else {
+                    // Assume host disconnect if packet is malformed
+                    [self handleHostDisconnect];
+                }
             }
             break;
 
@@ -988,6 +1016,12 @@ typedef struct {
         NSArray *players = [_mutableConnectedPlayers copy];
         for (RemotePlayer *player in players) {
             if (player.playerId == playerId) {
+                // Discover client's UDP port from first packet
+                if (player.udpPort == 0) {
+                    player.udpPort = ntohs(addr->sin_port);
+                    NSLog(@"NetworkManager: Discovered UDP port %d for player %u", player.udpPort, playerId);
+                }
+
                 // Only accept newer packets (handle sequence wrap-around)
                 int32_t seqDiff = (int32_t)(packet->sequence - player.lastSequence);
                 if (seqDiff > 0 || seqDiff < -1000000) {
@@ -1077,12 +1111,12 @@ typedef struct {
 - (void)relayStateUpdateToOtherPlayers:(GamePacket *)packet exceptPlayer:(uint32_t)excludeId {
     NSArray *players = [_mutableConnectedPlayers copy];
     for (RemotePlayer *player in players) {
-        if (player.playerId != excludeId) {
+        if (player.playerId != excludeId && player.udpPort != 0) {
             struct sockaddr_in addr;
             memset(&addr, 0, sizeof(addr));
             addr.sin_family = AF_INET;
             inet_pton(AF_INET, [player.address UTF8String], &addr.sin_addr);
-            addr.sin_port = htons(NET_DEFAULT_PORT + player.playerId);
+            addr.sin_port = htons(player.udpPort);  // Use discovered port
 
             PacketHeader header;
             header.magic = htonl(NET_MAGIC);

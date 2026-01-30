@@ -209,6 +209,17 @@
     NSLog(@"Disconnected");
 }
 
+- (void)networkManager:(id)manager playerDidDisconnect:(RemotePlayer *)player {
+    GameState *state = [GameState shared];
+
+    // Clear remote player state so they disappear
+    if ((int)player.playerId == state.remotePlayerId) {
+        state.remotePlayerAlive = NO;
+        state.remotePlayerId = 0;
+        NSLog(@"Remote player %u disconnected", player.playerId);
+    }
+}
+
 #pragma mark - Sending State
 
 - (void)sendLocalState:(float)posX posY:(float)posY posZ:(float)posZ
