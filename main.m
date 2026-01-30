@@ -156,6 +156,10 @@
 
 - (void)networkManagerDidConnect:(id)manager withPlayerId:(uint32_t)playerId {
     NSLog(@"[NETWORK] Connected to host! Assigned player ID: %u", playerId);
+    GameState *gameState = [GameState shared];
+    gameState.remotePlayerId = 1;  // Host is always player 1
+    gameState.isConnected = YES;
+    NSLog(@"[NETWORK] Set remote player ID to 1 (host)");
     [_lobbyView transitionToState:LobbyStateConnected];
     [_lobbyView setPlayerReady:2 ready:YES];
 }
