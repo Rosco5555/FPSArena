@@ -118,16 +118,16 @@
 
 - (void)lobbyDidStartHosting {
     NSLog(@"[LOBBY] Starting host...");
-    [NetworkManager shared].delegate = self;  // Ensure we get connection callbacks
     [[MultiplayerController shared] hostGame];
+    [NetworkManager shared].delegate = self;  // Set delegate AFTER to avoid being overwritten
     NSLog(@"[LOBBY] Host started, waiting for players");
 }
 
 - (void)lobbyDidConnectToHost:(NSString *)hostIP {
     NSLog(@"[LOBBY] Connecting to host: %@", hostIP);
     [[NetworkManager shared] stopLANDiscovery];
-    [NetworkManager shared].delegate = self;  // Ensure we get connection callbacks
     [[MultiplayerController shared] joinGameAtHost:hostIP];
+    [NetworkManager shared].delegate = self;  // Set delegate AFTER to avoid being overwritten
 }
 
 - (void)lobbyDidStartGame {
