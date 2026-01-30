@@ -3,7 +3,8 @@
     "allow": [
       "Bash(clang:*)",
       "Bash(xcodebuild:*)",
-      "Bash(grep:*)"
+      "Bash(grep:*)",
+      "Bash(./build.sh:*)"
     ]
   }
 }

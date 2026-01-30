@@ -218,7 +218,26 @@
             gameState.gameOver = YES;
             gameState.localRespawnTimer = RESPAWN_DELAY;
             NSLog(@"[NETWORK] Local player killed! Respawning in %d frames", RESPAWN_DELAY);
+
+            // Send death notification so remote player gets kill credit
+            [[MultiplayerController shared] sendLocalPlayerDeath];
         }
+    }
+}
+
+- (void)networkManager:(id)manager didReceiveKill:(uint32_t)victimId killedBy:(uint32_t)killerId {
+    GameState *gameState = [GameState shared];
+    NSLog(@"[NETWORK] Kill notification: player %u killed by player %u (local=%d)", victimId, killerId, gameState.localPlayerId);
+
+    // Update kill counts based on who died
+    if (victimId == (uint32_t)gameState.localPlayerId) {
+        // We died, remote player gets a kill
+        gameState.remotePlayerKills++;
+        NSLog(@"[NETWORK] Remote player kills: %d", gameState.remotePlayerKills);
+    } else {
+        // Remote player died, we get a kill
+        gameState.localPlayerKills++;
+        NSLog(@"[NETWORK] Local player kills: %d", gameState.localPlayerKills);
     }
 }
 
