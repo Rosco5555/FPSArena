@@ -146,9 +146,11 @@
 
 - (void)networkManager:(id)manager didReceiveHit:(int)damage toPlayer:(uint32_t)playerId fromPlayer:(uint32_t)shooterId {
     GameState *state = [GameState shared];
+    NSLog(@"didReceiveHit: %d damage, target:%u, shooter:%u, localId:%d", damage, playerId, shooterId, state.localPlayerId);
 
     // We got hit by remote player
     if (playerId == (uint32_t)state.localPlayerId) {
+        NSLog(@"Applying %d damage to local player! Health: %d -> %d", damage, state.playerHealth, state.playerHealth - damage);
         state.playerHealth -= damage;
         state.damageCooldownTimer = 0;
         state.bloodLevel += 0.25f;
@@ -243,9 +245,13 @@
 }
 
 - (void)sendHitOnRemotePlayer:(int)damage {
-    if (!_isConnected || !_isInGame) return;
+    if (!_isConnected || !_isInGame) {
+        NSLog(@"sendHitOnRemotePlayer: NOT sending - connected:%d inGame:%d", _isConnected, _isInGame);
+        return;
+    }
 
     GameState *state = [GameState shared];
+    NSLog(@"sendHitOnRemotePlayer: Sending %d damage to player %d", damage, state.remotePlayerId);
     [_networkManager sendHit:damage toPlayer:(uint32_t)state.remotePlayerId];
 }
 

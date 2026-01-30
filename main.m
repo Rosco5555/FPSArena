@@ -162,6 +162,9 @@
 
 - (void)networkManager:(id)manager playerDidConnect:(RemotePlayer *)player {
     NSLog(@"[NETWORK] Player connected! Player ID: %u, Name: %@", player.playerId, player.playerName);
+    GameState *gameState = [GameState shared];
+    gameState.remotePlayerId = (int)player.playerId;
+    gameState.isConnected = YES;
     [_lobbyView transitionToState:LobbyStateConnected];
     [_lobbyView setPlayerReady:1 ready:YES];
     [_lobbyView setPlayerReady:2 ready:YES];

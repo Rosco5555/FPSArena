@@ -788,7 +788,10 @@
 
             // In multiplayer, send hit notification if we hit the remote player
             if (state.isMultiplayer && hitResult.type == HitResultRemotePlayer) {
+                NSLog(@"HIT DETECTED on remote player! Sending damage: %d", PVP_DAMAGE);
                 [[MultiplayerController shared] sendHitOnRemotePlayer:PVP_DAMAGE];
+            } else if (state.isMultiplayer) {
+                NSLog(@"Shot fired - hitType: %d, isMP: %d, remoteAlive: %d", hitResult.type, state.isMultiplayer, state.remotePlayerAlive);
             }
         }
 
