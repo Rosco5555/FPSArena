@@ -453,8 +453,8 @@
     // Command building second floor
     float secondFloorY = FLOOR_Y + CMD_BUILDING_HEIGHT / 2.0f;
     float innerWall = CMD_WALL_THICK;
-    float stairHoleW = 1.0f;
-    float stairHoleD = 1.0f;
+    float stairHoleW = 2.0f;  // Must match GeometryBuilder.m
+    float stairHoleD = 2.0f;  // Must match GeometryBuilder.m
 
     // Second floor platform (with stair hole)
     // Left section

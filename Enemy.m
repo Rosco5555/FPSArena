@@ -1,6 +1,7 @@
 // Enemy.m - Enemy AI and state implementation
 #import "Enemy.h"
 #import "Collision.h"
+#import "CollisionWorld.h"
 #import "DoorSystem.h"
 #import "SoundManager.h"
 #import <math.h>
@@ -538,197 +539,47 @@ static void applyBotPhysics(int e) {
     float newY = enemyY[e] + botAI[e].velocityY;
     float newZ = enemyZ[e] + botAI[e].velocityZ;
 
-    // Ground collision
-    float groundY = FLOOR_Y + 0.6f;  // Enemy center height
-    if (newY <= groundY) {
-        newY = groundY;
-        botAI[e].velocityY = 0;
-        botAI[e].onGround = YES;
-    }
-
     // Update jump cooldown
     if (botAI[e].jumpCooldown > 0) {
         botAI[e].jumpCooldown--;
     }
 
-    // Enemy collision radius (similar to player but for enemy center)
+    // Enemy collision using CollisionWorld (same as player)
     float enemyRadius = 0.4f;
-    float fy = FLOOR_Y;
+    float enemyHeight = 1.2f;  // Enemy is 1.2 units tall
 
-    // Tower leg dimensions
-    float ts = TOWER_SIZE / 2.0f;  // 1.5f half-size
-    float legW = 0.3f;             // leg width from geometry
+    CollisionWorld *collisionWorld = [CollisionWorld shared];
 
-    // Constants for wall definitions
-    float hw = CMD_BUILDING_WIDTH / 2.0f;
-    float hd = CMD_BUILDING_DEPTH / 2.0f;
-    float wt = CMD_WALL_THICK;
-    float wh = CMD_BUILDING_HEIGHT;
-    float dw = CMD_DOOR_WIDTH / 2.0f;
-    float cw = WALL_WIDTH / 2.0f;
-    float cd = WALL_DEPTH / 2.0f;
+    // Ground detection using CollisionWorld
+    GroundResult groundResult = [collisionWorld checkGroundAt:newX y:newY z:newZ
+                                                 playerRadius:enemyRadius
+                                                 playerHeight:enemyHeight];
 
-    // Comprehensive wall collision array matching Renderer.m player collision
-    float walls[][6] = {
-        // Command building walls (4 outer walls + doorway)
-        {CMD_BUILDING_X - hw - wt, CMD_BUILDING_Z - hd - wt, CMD_BUILDING_X + hw + wt, CMD_BUILDING_Z - hd, fy, fy + wh},
-        {CMD_BUILDING_X - hw - wt, CMD_BUILDING_Z - hd, CMD_BUILDING_X - hw, CMD_BUILDING_Z + hd + wt, fy, fy + wh},
-        {CMD_BUILDING_X + hw, CMD_BUILDING_Z - hd, CMD_BUILDING_X + hw + wt, CMD_BUILDING_Z + hd + wt, fy, fy + wh},
-        {CMD_BUILDING_X - hw, CMD_BUILDING_Z + hd, CMD_BUILDING_X - dw, CMD_BUILDING_Z + hd + wt, fy, fy + wh},
-        {CMD_BUILDING_X + dw, CMD_BUILDING_Z + hd, CMD_BUILDING_X + hw, CMD_BUILDING_Z + hd + wt, fy, fy + wh},
-        {CMD_BUILDING_X - dw, CMD_BUILDING_Z + hd, CMD_BUILDING_X + dw, CMD_BUILDING_Z + hd + wt, fy + CMD_DOOR_HEIGHT, fy + wh},
-        // Legacy cover walls
-        {WALL1_X - cw, WALL1_Z - cd, WALL1_X + cw, WALL1_Z + cd, fy, fy + WALL_HEIGHT},
-        {WALL2_X - cw, WALL2_Z - cd, WALL2_X + cw, WALL2_Z + cd, fy, fy + WALL_HEIGHT},
-        // Tower 1 (NE: 15,15) - 4 corner legs
-        {TOWER_OFFSET - ts, TOWER_OFFSET - ts, TOWER_OFFSET - ts + legW, TOWER_OFFSET - ts + legW, fy, PLATFORM_LEVEL},
-        {TOWER_OFFSET + ts - legW, TOWER_OFFSET - ts, TOWER_OFFSET + ts, TOWER_OFFSET - ts + legW, fy, PLATFORM_LEVEL},
-        {TOWER_OFFSET - ts, TOWER_OFFSET + ts - legW, TOWER_OFFSET - ts + legW, TOWER_OFFSET + ts, fy, PLATFORM_LEVEL},
-        {TOWER_OFFSET + ts - legW, TOWER_OFFSET + ts - legW, TOWER_OFFSET + ts, TOWER_OFFSET + ts, fy, PLATFORM_LEVEL},
-        // Tower 2 (NW: -15,15) - 4 corner legs
-        {-TOWER_OFFSET - ts, TOWER_OFFSET - ts, -TOWER_OFFSET - ts + legW, TOWER_OFFSET - ts + legW, fy, PLATFORM_LEVEL},
-        {-TOWER_OFFSET + ts - legW, TOWER_OFFSET - ts, -TOWER_OFFSET + ts, TOWER_OFFSET - ts + legW, fy, PLATFORM_LEVEL},
-        {-TOWER_OFFSET - ts, TOWER_OFFSET + ts - legW, -TOWER_OFFSET - ts + legW, TOWER_OFFSET + ts, fy, PLATFORM_LEVEL},
-        {-TOWER_OFFSET + ts - legW, TOWER_OFFSET + ts - legW, -TOWER_OFFSET + ts, TOWER_OFFSET + ts, fy, PLATFORM_LEVEL},
-        // Tower 3 (SW: -15,-15) - 4 corner legs
-        {-TOWER_OFFSET - ts, -TOWER_OFFSET - ts, -TOWER_OFFSET - ts + legW, -TOWER_OFFSET - ts + legW, fy, PLATFORM_LEVEL},
-        {-TOWER_OFFSET + ts - legW, -TOWER_OFFSET - ts, -TOWER_OFFSET + ts, -TOWER_OFFSET - ts + legW, fy, PLATFORM_LEVEL},
-        {-TOWER_OFFSET - ts, -TOWER_OFFSET + ts - legW, -TOWER_OFFSET - ts + legW, -TOWER_OFFSET + ts, fy, PLATFORM_LEVEL},
-        {-TOWER_OFFSET + ts - legW, -TOWER_OFFSET + ts - legW, -TOWER_OFFSET + ts, -TOWER_OFFSET + ts, fy, PLATFORM_LEVEL},
-        // Tower 4 (SE: 15,-15) - 4 corner legs
-        {TOWER_OFFSET - ts, -TOWER_OFFSET - ts, TOWER_OFFSET - ts + legW, -TOWER_OFFSET - ts + legW, fy, PLATFORM_LEVEL},
-        {TOWER_OFFSET + ts - legW, -TOWER_OFFSET - ts, TOWER_OFFSET + ts, -TOWER_OFFSET - ts + legW, fy, PLATFORM_LEVEL},
-        {TOWER_OFFSET - ts, -TOWER_OFFSET + ts - legW, TOWER_OFFSET - ts + legW, -TOWER_OFFSET + ts, fy, PLATFORM_LEVEL},
-        {TOWER_OFFSET + ts - legW, -TOWER_OFFSET + ts - legW, TOWER_OFFSET + ts, -TOWER_OFFSET + ts, fy, PLATFORM_LEVEL},
-        // Cargo containers (8 ground + 1 stacked)
-        // Container 1: {8.0f, 4.0f, rotated=0}
-        {8.0f - CONTAINER_LENGTH/2, 4.0f - CONTAINER_WIDTH/2, 8.0f + CONTAINER_LENGTH/2, 4.0f + CONTAINER_WIDTH/2, fy, fy + CONTAINER_HEIGHT},
-        // Container 2: {8.5f, 6.5f, rotated=1}
-        {8.5f - CONTAINER_WIDTH/2, 6.5f - CONTAINER_LENGTH/2, 8.5f + CONTAINER_WIDTH/2, 6.5f + CONTAINER_LENGTH/2, fy, fy + CONTAINER_HEIGHT},
-        // Container 3: {-8.0f, 4.0f, rotated=0}
-        {-8.0f - CONTAINER_LENGTH/2, 4.0f - CONTAINER_WIDTH/2, -8.0f + CONTAINER_LENGTH/2, 4.0f + CONTAINER_WIDTH/2, fy, fy + CONTAINER_HEIGHT},
-        // Container 4: {-8.5f, 6.5f, rotated=1}
-        {-8.5f - CONTAINER_WIDTH/2, 6.5f - CONTAINER_LENGTH/2, -8.5f + CONTAINER_WIDTH/2, 6.5f + CONTAINER_LENGTH/2, fy, fy + CONTAINER_HEIGHT},
-        // Container 5: {6.0f, -8.0f, rotated=1}
-        {6.0f - CONTAINER_WIDTH/2, -8.0f - CONTAINER_LENGTH/2, 6.0f + CONTAINER_WIDTH/2, -8.0f + CONTAINER_LENGTH/2, fy, fy + CONTAINER_HEIGHT},
-        // Container 6: {-6.0f, -8.0f, rotated=1}
-        {-6.0f - CONTAINER_WIDTH/2, -8.0f - CONTAINER_LENGTH/2, -6.0f + CONTAINER_WIDTH/2, -8.0f + CONTAINER_LENGTH/2, fy, fy + CONTAINER_HEIGHT},
-        // Container 7: {0.0f, -12.0f, rotated=0}
-        {0.0f - CONTAINER_LENGTH/2, -12.0f - CONTAINER_WIDTH/2, 0.0f + CONTAINER_LENGTH/2, -12.0f + CONTAINER_WIDTH/2, fy, fy + CONTAINER_HEIGHT},
-        // Container 8: {12.0f, 0.0f, rotated=1}
-        {12.0f - CONTAINER_WIDTH/2, 0.0f - CONTAINER_LENGTH/2, 12.0f + CONTAINER_WIDTH/2, 0.0f + CONTAINER_LENGTH/2, fy, fy + CONTAINER_HEIGHT},
-        // Stacked container on top of container 1: {8.0f, 4.0f, rotated=0}
-        {8.0f - CONTAINER_LENGTH/2, 4.0f - CONTAINER_WIDTH/2, 8.0f + CONTAINER_LENGTH/2, 4.0f + CONTAINER_WIDTH/2, fy + CONTAINER_HEIGHT, fy + CONTAINER_HEIGHT * 2},
-        // Sandbag walls (10 positions)
-        // Sandbag 1: {5.0f, 4.0f, rotated=0}
-        {5.0f - SANDBAG_LENGTH/2, 4.0f - SANDBAG_THICK/2, 5.0f + SANDBAG_LENGTH/2, 4.0f + SANDBAG_THICK/2, fy, fy + SANDBAG_HEIGHT},
-        // Sandbag 2: {-5.0f, 4.0f, rotated=0}
-        {-5.0f - SANDBAG_LENGTH/2, 4.0f - SANDBAG_THICK/2, -5.0f + SANDBAG_LENGTH/2, 4.0f + SANDBAG_THICK/2, fy, fy + SANDBAG_HEIGHT},
-        // Sandbag 3: {5.0f, -4.0f, rotated=0}
-        {5.0f - SANDBAG_LENGTH/2, -4.0f - SANDBAG_THICK/2, 5.0f + SANDBAG_LENGTH/2, -4.0f + SANDBAG_THICK/2, fy, fy + SANDBAG_HEIGHT},
-        // Sandbag 4: {-5.0f, -4.0f, rotated=0}
-        {-5.0f - SANDBAG_LENGTH/2, -4.0f - SANDBAG_THICK/2, -5.0f + SANDBAG_LENGTH/2, -4.0f + SANDBAG_THICK/2, fy, fy + SANDBAG_HEIGHT},
-        // Sandbag 5: {12.0f, 10.0f, rotated=1}
-        {12.0f - SANDBAG_THICK/2, 10.0f - SANDBAG_LENGTH/2, 12.0f + SANDBAG_THICK/2, 10.0f + SANDBAG_LENGTH/2, fy, fy + SANDBAG_HEIGHT},
-        // Sandbag 6: {-12.0f, 10.0f, rotated=1}
-        {-12.0f - SANDBAG_THICK/2, 10.0f - SANDBAG_LENGTH/2, -12.0f + SANDBAG_THICK/2, 10.0f + SANDBAG_LENGTH/2, fy, fy + SANDBAG_HEIGHT},
-        // Sandbag 7: {12.0f, -10.0f, rotated=1}
-        {12.0f - SANDBAG_THICK/2, -10.0f - SANDBAG_LENGTH/2, 12.0f + SANDBAG_THICK/2, -10.0f + SANDBAG_LENGTH/2, fy, fy + SANDBAG_HEIGHT},
-        // Sandbag 8: {-12.0f, -10.0f, rotated=1}
-        {-12.0f - SANDBAG_THICK/2, -10.0f - SANDBAG_LENGTH/2, -12.0f + SANDBAG_THICK/2, -10.0f + SANDBAG_LENGTH/2, fy, fy + SANDBAG_HEIGHT},
-        // Sandbag 9: {3.0f, 8.0f, rotated=1}
-        {3.0f - SANDBAG_THICK/2, 8.0f - SANDBAG_LENGTH/2, 3.0f + SANDBAG_THICK/2, 8.0f + SANDBAG_LENGTH/2, fy, fy + SANDBAG_HEIGHT},
-        // Sandbag 10: {-3.0f, 8.0f, rotated=1}
-        {-3.0f - SANDBAG_THICK/2, 8.0f - SANDBAG_LENGTH/2, -3.0f + SANDBAG_THICK/2, 8.0f + SANDBAG_LENGTH/2, fy, fy + SANDBAG_HEIGHT},
-        // Arena boundary walls
-        {-ARENA_SIZE - 0.5f, -ARENA_SIZE - 0.5f, -ARENA_SIZE, ARENA_SIZE + 0.5f, fy, fy + 10.0f},  // West wall
-        {ARENA_SIZE, -ARENA_SIZE - 0.5f, ARENA_SIZE + 0.5f, ARENA_SIZE + 0.5f, fy, fy + 10.0f},    // East wall
-        {-ARENA_SIZE - 0.5f, -ARENA_SIZE - 0.5f, ARENA_SIZE + 0.5f, -ARENA_SIZE, fy, fy + 10.0f},  // South wall
-        {-ARENA_SIZE - 0.5f, ARENA_SIZE, ARENA_SIZE + 0.5f, ARENA_SIZE + 0.5f, fy, fy + 10.0f},    // North wall
-        // Bunker entrance walls
-        {BUNKER_X - BUNKER_STAIR_WIDTH/2 - 0.4f, BUNKER_Z + BUNKER_DEPTH/2 - 0.4f, BUNKER_X - BUNKER_STAIR_WIDTH/2, BUNKER_Z + BUNKER_DEPTH/2, fy, fy + 1.0f},
-        {BUNKER_X + BUNKER_STAIR_WIDTH/2, BUNKER_Z + BUNKER_DEPTH/2 - 0.4f, BUNKER_X + BUNKER_STAIR_WIDTH/2 + 0.4f, BUNKER_Z + BUNKER_DEPTH/2, fy, fy + 1.0f},
-    };
-    int numWalls = 53;
-
-    // Get enemy height for Y collision check
-    float enemyFeetY = newY - 0.6f;  // Enemy is 1.2 units tall, center is 0.6 above feet
-    float enemyHeadY = newY + 0.6f;
-
-    // Check collision with all walls
-    for (int i = 0; i < numWalls; i++) {
-        float xMin = walls[i][0];
-        float zMin = walls[i][1];
-        float xMax = walls[i][2];
-        float zMax = walls[i][3];
-        float yMin = walls[i][4];
-        float yMax = walls[i][5];
-
-        // Check if enemy overlaps with wall (including radius)
-        BOOL xOv = newX > xMin - enemyRadius && newX < xMax + enemyRadius;
-        BOOL zOv = newZ > zMin - enemyRadius && newZ < zMax + enemyRadius;
-        BOOL yOv = enemyFeetY < yMax && enemyHeadY > yMin;
-
-        if (xOv && zOv && yOv) {
-            // Calculate penetration depths from each side
-            float penL = newX - (xMin - enemyRadius);
-            float penR = (xMax + enemyRadius) - newX;
-            float penN = newZ - (zMin - enemyRadius);
-            float penF = (zMax + enemyRadius) - newZ;
-
-            float minPenX = fminf(penL, penR);
-            float minPenZ = fminf(penN, penF);
-
-            // Push out along the axis with minimum penetration
-            if (minPenX < minPenZ) {
-                if (penL < penR) {
-                    newX = xMin - enemyRadius;
-                } else {
-                    newX = xMax + enemyRadius;
-                }
-                botAI[e].velocityX = 0;
-            } else {
-                if (penN < penF) {
-                    newZ = zMin - enemyRadius;
-                } else {
-                    newZ = zMax + enemyRadius;
-                }
-                botAI[e].velocityZ = 0;
-            }
-        }
+    if (groundResult.onGround) {
+        newY = groundResult.groundY + enemyHeight / 2.0f;  // Center height
+        botAI[e].velocityY = 0;
+        botAI[e].onGround = YES;
     }
 
-    // Also check door collision
-    simd_float3 doorMin, doorMax;
-    getDoorAABB(&doorMin, &doorMax);
+    // Wall collision using CollisionWorld
+    simd_float3 enemyPos = {newX, newY, newZ};
+    simd_float3 enemyVel = {botAI[e].velocityX, botAI[e].velocityY, botAI[e].velocityZ};
+    MoveResult moveResult = [collisionWorld movePlayerFrom:enemyPos
+                                                  velocity:enemyVel
+                                                    radius:enemyRadius
+                                                    height:enemyHeight];
 
-    BOOL xOvDoor = newX > doorMin.x - enemyRadius && newX < doorMax.x + enemyRadius;
-    BOOL zOvDoor = newZ > doorMin.z - enemyRadius && newZ < doorMax.z + enemyRadius;
-    BOOL yOvDoor = enemyFeetY < doorMax.y && enemyHeadY > doorMin.y;
+    if (moveResult.collided) {
+        newX += moveResult.pushOut.x;
+        newY += moveResult.pushOut.y;
+        newZ += moveResult.pushOut.z;
+        botAI[e].velocityX = moveResult.newVelocity.x;
+        botAI[e].velocityY = moveResult.newVelocity.y;
+        botAI[e].velocityZ = moveResult.newVelocity.z;
 
-    if (xOvDoor && zOvDoor && yOvDoor) {
-        float penL = newX - (doorMin.x - enemyRadius);
-        float penR = (doorMax.x + enemyRadius) - newX;
-        float penN = newZ - (doorMin.z - enemyRadius);
-        float penF = (doorMax.z + enemyRadius) - newZ;
-
-        float minPenX = fminf(penL, penR);
-        float minPenZ = fminf(penN, penF);
-
-        if (minPenX < minPenZ) {
-            if (penL < penR) {
-                newX = doorMin.x - enemyRadius;
-            } else {
-                newX = doorMax.x + enemyRadius;
-            }
-            botAI[e].velocityX = 0;
-        } else {
-            if (penN < penF) {
-                newZ = doorMin.z - enemyRadius;
-            } else {
-                newZ = doorMax.z + enemyRadius;
-            }
-            botAI[e].velocityZ = 0;
+        // Check if landed on something
+        if (moveResult.pushOut.y > 0 && botAI[e].velocityY == 0) {
+            botAI[e].onGround = YES;
         }
     }
 
