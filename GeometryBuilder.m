@@ -237,55 +237,44 @@
         QUAD(verts, v, tx-ts, platY-platT, tz-ts, tx-ts, platY-platT, tz+ts,
              tx-ts, platY, tz+ts, tx-ts, platY, tz-ts, metalDark);
 
-        // Railings
-        float postW = 0.08f;
-        for (int side = 0; side < 4; side++) {
-            float px1, pz1;
-            switch(side) {
-                case 0: px1 = tx-ts; pz1 = tz+ts; break;
-                case 1: px1 = tx+ts; pz1 = tz-ts; break;
-                case 2: px1 = tx+ts; pz1 = tz+ts; break;
-                default: px1 = tx-ts; pz1 = tz-ts; break;
-            }
-            BOX3D(verts, v, px1-postW/2, platY, pz1-postW/2, px1+postW/2, platY+railH, pz1+postW/2,
-                  railCol, railCol, railCol, railCol, railCol, railCol);
-        }
+        // Tower railings removed - catwalks have their own railings and connect to towers
 
-        // Horizontal rails
-        float railT = 0.06f;
-        BOX3D(verts, v, tx-ts, platY+railH-railT, tz+ts-railT, tx+ts, platY+railH, tz+ts,
-              railCol, railCol, railCol, railCol, railCol, railCol);
-        BOX3D(verts, v, tx-ts, platY+railH-railT, tz-ts, tx+ts, platY+railH, tz-ts+railT,
-              railCol, railCol, railCol, railCol, railCol, railCol);
-        BOX3D(verts, v, tx+ts-railT, platY+railH-railT, tz-ts, tx+ts, platY+railH, tz+ts,
-              railCol, railCol, railCol, railCol, railCol, railCol);
-        BOX3D(verts, v, tx-ts, platY+railH-railT, tz-ts, tx-ts+railT, platY+railH, tz+ts,
-              railCol, railCol, railCol, railCol, railCol, railCol);
-
-        // Ramp
+        // Ramp - goes OUTWARD from arena center (away from catwalks)
         float rampW = RAMP_WIDTH / 2.0f;
         float rampL = RAMP_LENGTH;
-        float rampDx = (tx > 0) ? -1.0f : 1.0f;
-        float rampDz = (tz > 0) ? -1.0f : 1.0f;
+        // Ramps go AWAY from center: positive Z for north towers, negative Z for south towers
+        float rampDz = (tz > 0) ? 1.0f : -1.0f;  // Away from center on Z axis
 
-        float rampStartX = tx + rampDx * ts;
-        float rampStartZ = tz + rampDz * ts;
-        float rampEndX = rampStartX + rampDx * rampL;
+        float rampStartX = tx;  // Centered on tower X
+        float rampStartZ = tz + rampDz * ts;  // Start at outer edge of tower
+        float rampEndX = tx;
         float rampEndZ = rampStartZ + rampDz * rampL;
 
-        verts[v++] = (Vertex){{rampStartX - rampW * fabsf(rampDz), platY, rampStartZ - rampW * fabsf(rampDx)}, rampCol};
-        verts[v++] = (Vertex){{rampStartX + rampW * fabsf(rampDz), platY, rampStartZ + rampW * fabsf(rampDx)}, rampCol};
-        verts[v++] = (Vertex){{rampEndX + rampW * fabsf(rampDz), fy, rampEndZ + rampW * fabsf(rampDx)}, rampCol};
-        verts[v++] = (Vertex){{rampStartX - rampW * fabsf(rampDz), platY, rampStartZ - rampW * fabsf(rampDx)}, rampCol};
-        verts[v++] = (Vertex){{rampEndX + rampW * fabsf(rampDz), fy, rampEndZ + rampW * fabsf(rampDx)}, rampCol};
-        verts[v++] = (Vertex){{rampEndX - rampW * fabsf(rampDz), fy, rampEndZ - rampW * fabsf(rampDx)}, rampCol};
+        // Top surface
+        verts[v++] = (Vertex){{rampStartX - rampW, platY, rampStartZ}, rampCol};
+        verts[v++] = (Vertex){{rampStartX + rampW, platY, rampStartZ}, rampCol};
+        verts[v++] = (Vertex){{rampEndX + rampW, fy, rampEndZ}, rampCol};
+        verts[v++] = (Vertex){{rampStartX - rampW, platY, rampStartZ}, rampCol};
+        verts[v++] = (Vertex){{rampEndX + rampW, fy, rampEndZ}, rampCol};
+        verts[v++] = (Vertex){{rampEndX - rampW, fy, rampEndZ}, rampCol};
 
-        verts[v++] = (Vertex){{rampStartX + rampW * fabsf(rampDz), platY - platT, rampStartZ + rampW * fabsf(rampDx)}, rampDark};
-        verts[v++] = (Vertex){{rampStartX - rampW * fabsf(rampDz), platY - platT, rampStartZ - rampW * fabsf(rampDx)}, rampDark};
-        verts[v++] = (Vertex){{rampEndX - rampW * fabsf(rampDz), fy, rampEndZ - rampW * fabsf(rampDx)}, rampDark};
-        verts[v++] = (Vertex){{rampStartX + rampW * fabsf(rampDz), platY - platT, rampStartZ + rampW * fabsf(rampDx)}, rampDark};
-        verts[v++] = (Vertex){{rampEndX - rampW * fabsf(rampDz), fy, rampEndZ - rampW * fabsf(rampDx)}, rampDark};
-        verts[v++] = (Vertex){{rampEndX + rampW * fabsf(rampDz), fy, rampEndZ + rampW * fabsf(rampDx)}, rampDark};
+        // Bottom surface
+        verts[v++] = (Vertex){{rampStartX + rampW, platY - platT, rampStartZ}, rampDark};
+        verts[v++] = (Vertex){{rampStartX - rampW, platY - platT, rampStartZ}, rampDark};
+        verts[v++] = (Vertex){{rampEndX - rampW, fy, rampEndZ}, rampDark};
+        verts[v++] = (Vertex){{rampStartX + rampW, platY - platT, rampStartZ}, rampDark};
+        verts[v++] = (Vertex){{rampEndX - rampW, fy, rampEndZ}, rampDark};
+        verts[v++] = (Vertex){{rampEndX + rampW, fy, rampEndZ}, rampDark};
+
+        // Left side wall (triangular - ramp tapers to ground)
+        verts[v++] = (Vertex){{rampStartX - rampW, platY, rampStartZ}, rampDark};
+        verts[v++] = (Vertex){{rampStartX - rampW, platY - platT, rampStartZ}, rampDark};
+        verts[v++] = (Vertex){{rampEndX - rampW, fy, rampEndZ}, rampDark};
+
+        // Right side wall (triangular)
+        verts[v++] = (Vertex){{rampStartX + rampW, platY - platT, rampStartZ}, rampDark};
+        verts[v++] = (Vertex){{rampStartX + rampW, platY, rampStartZ}, rampDark};
+        verts[v++] = (Vertex){{rampEndX + rampW, fy, rampEndZ}, rampDark};
     }
 
     *count = v;
@@ -444,8 +433,9 @@
              bx+sw, sy + stepH, sz - stepD, bx+sw, sy + stepH, sz, bunkerInt);
     }
 
-    QUAD(verts, v, bx-hw+wt, fy, bz-hd+wt, bx-hw+wt, fy, bz+hd-wt,
-         bx+hw-wt, fy, bz+hd-wt, bx+hw-wt, fy, bz-hd+wt, bunkerDark);
+    // Bunker ceiling - slight offset below floor to avoid z-fighting with main floor
+    QUAD(verts, v, bx-hw+wt, fy-0.01f, bz-hd+wt, bx-hw+wt, fy-0.01f, bz+hd-wt,
+         bx+hw-wt, fy-0.01f, bz+hd-wt, bx+hw-wt, fy-0.01f, bz-hd+wt, bunkerDark);
 
     *count = v;
     return [device newBufferWithBytes:verts length:sizeof(Vertex) * v options:MTLResourceStorageModeShared];
@@ -474,8 +464,8 @@
     float fy = FLOOR_Y;
 
     struct { float x, z; int rotated, colorSet; } containers[] = {
-        {8.0f, 4.0f, 0, 0}, {8.5f, 6.5f, 1, 1}, {-8.0f, 4.0f, 0, 1}, {-8.5f, 6.5f, 1, 0},
-        {6.0f, -8.0f, 1, 0}, {-6.0f, -8.0f, 1, 1}, {0.0f, -12.0f, 0, 0}, {12.0f, 0.0f, 1, 1},
+        {8.0f, 4.0f, 0, 0}, {6.0f, 7.0f, 1, 1}, {-8.0f, 4.0f, 0, 1}, {-6.0f, 7.0f, 1, 0},
+        {6.0f, -8.0f, 1, 0}, {-6.0f, -8.0f, 1, 1}, {0.0f, -12.0f, 0, 0}, {18.0f, 0.0f, 1, 1},
     };
     int numContainers = 8;
 
@@ -530,8 +520,10 @@
         float wl = walls[i].rotated ? st : sl;
         float wd = walls[i].rotated ? sl : st;
 
-        BOX3D(verts, v, wx-wl, fy, wz-wd, wx+wl, fy+sh*0.6f, wz+wd,
+        // Lower tier of sandbags
+        BOX3D(verts, v, wx-wl, fy, wz-wd, wx+wl, fy+sh*0.55f, wz+wd,
               bagFront, bagBack, bagSide, bagSide, bagTop, bagBot);
+        // Upper tier (smaller, no overlap)
         BOX3D(verts, v, wx-wl*0.9f, fy+sh*0.55f, wz-wd*0.9f, wx+wl*0.9f, fy+sh, wz+wd*0.9f,
               bagFront, bagBack, bagSide, bagSide, bagTop, bagBot);
     }
@@ -545,8 +537,9 @@
     Vertex verts[MAX_FLOOR_VERTS];
     int v = 0;
 
-    float s = ARENA_SIZE + 5.0f;
-    float fy = FLOOR_Y;
+    float s = ARENA_SIZE;  // Match collision boundary
+    // Floor surface slightly below FLOOR_Y to avoid z-fighting with object bottom faces
+    float fy = FLOOR_Y - 0.01f;
 
     simd_float3 dirtOuter = {0.25f, 0.20f, 0.12f};
     simd_float3 dirtInner = {0.30f, 0.25f, 0.15f};
@@ -678,33 +671,134 @@
 // ============================================
 
 + (id<MTLBuffer>)createGunBufferWithDevice:(id<MTLDevice>)device vertexCount:(NSUInteger *)count {
-    #define MAX_GUN_VERTS 1500
+    #define MAX_GUN_VERTS 5000
     Vertex gunVerts[MAX_GUN_VERTS];
     int gv = 0;
 
+    // Colors - more variety for detail
+    simd_float3 gunBlack = {0.08, 0.08, 0.10};
     simd_float3 gunDark = {0.12, 0.12, 0.14};
-    simd_float3 gunMid = {0.22, 0.22, 0.25};
-    simd_float3 gunLight = {0.32, 0.32, 0.35};
-    simd_float3 gunTop = {0.28, 0.28, 0.30};
-    simd_float3 gunBot = {0.10, 0.10, 0.12};
+    simd_float3 gunMid = {0.20, 0.20, 0.23};
+    simd_float3 gunLight = {0.30, 0.30, 0.33};
+    simd_float3 gunShine = {0.40, 0.40, 0.45};
+    simd_float3 metalDark = {0.15, 0.15, 0.18};
+    simd_float3 metalMid = {0.25, 0.25, 0.30};
+    simd_float3 metalLight = {0.35, 0.35, 0.42};
     simd_float3 skinLight = {0.87, 0.72, 0.60};
     simd_float3 skinMid = {0.76, 0.60, 0.48};
     simd_float3 skinDark = {0.65, 0.50, 0.40};
-    simd_float3 skinShadow = {0.55, 0.42, 0.35};
-    simd_float3 sleeveLight = {0.18, 0.18, 0.20};
-    simd_float3 sleeveMid = {0.12, 0.12, 0.14};
-    simd_float3 sleeveDark = {0.08, 0.08, 0.10};
+    simd_float3 skinShadow = {0.50, 0.38, 0.30};
+    simd_float3 nailCol = {0.85, 0.75, 0.70};
+    simd_float3 sleeveLight = {0.22, 0.24, 0.20};
+    simd_float3 sleeveMid = {0.15, 0.17, 0.14};
+    simd_float3 sleeveDark = {0.10, 0.12, 0.09};
+    simd_float3 cuffCol = {0.18, 0.18, 0.16};
 
-    BOX3D(gunVerts, gv, -0.03f, 0.0f, -0.15f, 0.03f, 0.04f, 0.12f, gunMid, gunDark, gunMid, gunMid, gunTop, gunBot);
-    BOX3D(gunVerts, gv, -0.015f, 0.01f, 0.12f, 0.015f, 0.03f, 0.25f, gunDark, gunDark, gunDark, gunDark, gunDark, gunDark);
-    BOX3D(gunVerts, gv, -0.025f, -0.12f, -0.12f, 0.025f, 0.0f, -0.04f, gunDark, gunMid, gunDark, gunDark, gunBot, gunBot);
-    BOX3D(gunVerts, gv, -0.02f, -0.04f, -0.04f, 0.02f, -0.02f, 0.02f, gunLight, gunLight, gunLight, gunLight, gunLight, gunLight);
-    BOX3D(gunVerts, gv, -0.02f, 0.04f, -0.12f, 0.02f, 0.055f, -0.08f, gunDark, gunDark, gunDark, gunDark, gunLight, gunDark);
-    BOX3D(gunVerts, gv, -0.01f, 0.04f, 0.08f, 0.01f, 0.05f, 0.10f, gunDark, gunDark, gunDark, gunDark, gunLight, gunDark);
-    BOX3D(gunVerts, gv, -0.04f, -0.12f, -0.18f, 0.04f, 0.0f, -0.04f, skinMid, skinDark, skinLight, skinMid, skinLight, skinShadow);
-    BOX3D(gunVerts, gv, -0.05f, -0.16f, -0.35f, 0.05f, 0.0f, -0.18f, sleeveMid, sleeveDark, sleeveLight, sleeveMid, sleeveLight, sleeveDark);
-    BOX3D(gunVerts, gv, -0.06f, -0.22f, -0.55f, 0.06f, -0.02f, -0.35f, sleeveMid, sleeveDark, sleeveLight, sleeveMid, sleeveLight, sleeveDark);
-    BOX3D(gunVerts, gv, -0.08f, -0.35f, -0.85f, 0.08f, -0.05f, -0.55f, sleeveMid, sleeveDark, sleeveLight, sleeveMid, sleeveLight, sleeveDark);
+    // === DETAILED GUN MODEL ===
+    // Main receiver body - multiple sections for detail
+    BOX3D(gunVerts, gv, -0.028f, 0.005f, -0.12f, 0.028f, 0.038f, 0.08f, gunMid, gunDark, gunMid, gunMid, gunLight, gunDark);
+    // Top rail/sight mount
+    BOX3D(gunVerts, gv, -0.018f, 0.038f, -0.08f, 0.018f, 0.048f, 0.06f, gunDark, gunDark, gunDark, gunDark, gunMid, gunDark);
+    // Picatinny rail grooves (multiple small boxes)
+    for (int i = 0; i < 8; i++) {
+        float z = -0.06f + i * 0.015f;
+        BOX3D(gunVerts, gv, -0.016f, 0.048f, z, 0.016f, 0.052f, z+0.008f, gunBlack, gunBlack, gunBlack, gunBlack, gunDark, gunBlack);
+    }
+
+    // Barrel - octagonal approximation with 8 faces
+    float bx = 0.0f, by = 0.022f;
+    float br = 0.012f;  // barrel radius
+    for (int i = 0; i < 8; i++) {
+        float a1 = i * M_PI / 4.0f;
+        float a2 = (i + 1) * M_PI / 4.0f;
+        float x1 = bx + br * cosf(a1), y1 = by + br * sinf(a1);
+        float x2 = bx + br * cosf(a2), y2 = by + br * sinf(a2);
+        simd_float3 col = (i % 2 == 0) ? gunDark : gunBlack;
+        // Barrel side face
+        gunVerts[gv++] = (Vertex){{x1, y1, 0.08f}, col};
+        gunVerts[gv++] = (Vertex){{x2, y2, 0.08f}, col};
+        gunVerts[gv++] = (Vertex){{x2, y2, 0.22f}, col};
+        gunVerts[gv++] = (Vertex){{x1, y1, 0.08f}, col};
+        gunVerts[gv++] = (Vertex){{x2, y2, 0.22f}, col};
+        gunVerts[gv++] = (Vertex){{x1, y1, 0.22f}, col};
+    }
+    // Barrel muzzle ring
+    BOX3D(gunVerts, gv, -0.015f, 0.007f, 0.22f, 0.015f, 0.037f, 0.25f, gunBlack, gunBlack, gunBlack, gunBlack, gunBlack, gunBlack);
+
+    // Front sight post
+    BOX3D(gunVerts, gv, -0.003f, 0.037f, 0.18f, 0.003f, 0.058f, 0.20f, gunDark, gunDark, gunDark, gunDark, metalLight, gunDark);
+    // Front sight guards
+    BOX3D(gunVerts, gv, -0.012f, 0.037f, 0.17f, -0.008f, 0.052f, 0.21f, gunDark, gunDark, gunDark, gunDark, gunDark, gunDark);
+    BOX3D(gunVerts, gv, 0.008f, 0.037f, 0.17f, 0.012f, 0.052f, 0.21f, gunDark, gunDark, gunDark, gunDark, gunDark, gunDark);
+
+    // Rear sight
+    BOX3D(gunVerts, gv, -0.015f, 0.048f, -0.10f, -0.008f, 0.065f, -0.08f, gunDark, gunDark, gunDark, gunDark, gunMid, gunDark);
+    BOX3D(gunVerts, gv, 0.008f, 0.048f, -0.10f, 0.015f, 0.065f, -0.08f, gunDark, gunDark, gunDark, gunDark, gunMid, gunDark);
+    BOX3D(gunVerts, gv, -0.015f, 0.058f, -0.10f, 0.015f, 0.065f, -0.08f, gunDark, gunDark, gunDark, gunDark, gunMid, gunDark);
+
+    // Ejection port
+    BOX3D(gunVerts, gv, 0.028f, 0.015f, -0.02f, 0.032f, 0.032f, 0.03f, gunBlack, gunBlack, gunBlack, gunBlack, gunBlack, gunBlack);
+
+    // Magazine
+    BOX3D(gunVerts, gv, -0.018f, -0.08f, -0.06f, 0.018f, 0.005f, 0.0f, gunMid, gunDark, gunMid, gunMid, gunMid, gunDark);
+    // Magazine base plate
+    BOX3D(gunVerts, gv, -0.020f, -0.085f, -0.06f, 0.020f, -0.08f, 0.0f, gunLight, gunMid, gunLight, gunLight, gunMid, gunDark);
+
+    // Grip - more detailed with texture
+    BOX3D(gunVerts, gv, -0.022f, -0.10f, -0.12f, 0.022f, 0.005f, -0.06f, gunMid, gunDark, gunLight, gunMid, gunLight, gunDark);
+    // Grip texture lines
+    for (int i = 0; i < 5; i++) {
+        float y = -0.09f + i * 0.018f;
+        BOX3D(gunVerts, gv, -0.024f, y, -0.115f, 0.024f, y+0.006f, -0.065f, gunDark, gunBlack, gunDark, gunDark, gunDark, gunDark);
+    }
+    // Grip base
+    BOX3D(gunVerts, gv, -0.024f, -0.11f, -0.12f, 0.024f, -0.10f, -0.06f, gunLight, gunMid, gunLight, gunLight, gunMid, gunDark);
+
+    // Trigger guard - curved approximation
+    BOX3D(gunVerts, gv, -0.018f, -0.03f, -0.04f, 0.018f, -0.02f, 0.02f, gunDark, gunDark, gunDark, gunDark, gunDark, gunDark);
+    BOX3D(gunVerts, gv, -0.018f, -0.05f, -0.04f, -0.014f, -0.02f, 0.02f, gunDark, gunDark, gunDark, gunDark, gunDark, gunDark);
+    BOX3D(gunVerts, gv, 0.014f, -0.05f, -0.04f, 0.018f, -0.02f, 0.02f, gunDark, gunDark, gunDark, gunDark, gunDark, gunDark);
+    BOX3D(gunVerts, gv, -0.018f, -0.05f, -0.04f, 0.018f, -0.045f, -0.035f, gunDark, gunDark, gunDark, gunDark, gunDark, gunDark);
+
+    // Trigger
+    BOX3D(gunVerts, gv, -0.004f, -0.04f, -0.02f, 0.004f, -0.015f, -0.01f, metalMid, metalDark, metalMid, metalMid, metalLight, metalDark);
+
+    // === DETAILED HAND AND ARM ===
+    // Right hand holding grip - with individual fingers
+    // Palm
+    BOX3D(gunVerts, gv, -0.032f, -0.09f, -0.15f, 0.032f, -0.01f, -0.10f, skinMid, skinDark, skinLight, skinMid, skinLight, skinShadow);
+    // Thumb
+    BOX3D(gunVerts, gv, 0.032f, -0.05f, -0.14f, 0.048f, -0.02f, -0.10f, skinMid, skinDark, skinLight, skinMid, skinLight, skinDark);
+    BOX3D(gunVerts, gv, 0.045f, -0.04f, -0.13f, 0.058f, -0.02f, -0.10f, skinMid, skinDark, skinLight, skinMid, skinLight, skinDark);
+    // Index finger (on trigger)
+    BOX3D(gunVerts, gv, -0.008f, -0.045f, -0.06f, 0.008f, -0.02f, -0.02f, skinMid, skinShadow, skinLight, skinMid, skinLight, skinDark);
+    // Middle, ring, pinky fingers wrapped around grip
+    for (int f = 0; f < 3; f++) {
+        float fy = -0.06f - f * 0.018f;
+        BOX3D(gunVerts, gv, -0.035f, fy-0.015f, -0.13f, -0.022f, fy, -0.06f, skinMid, skinDark, skinLight, skinMid, skinLight, skinDark);
+        // Fingertips with nails
+        BOX3D(gunVerts, gv, -0.038f, fy-0.012f, -0.06f, -0.022f, fy-0.003f, -0.05f, skinMid, skinDark, skinMid, skinMid, skinLight, skinDark);
+    }
+
+    // Wrist
+    BOX3D(gunVerts, gv, -0.038f, -0.12f, -0.22f, 0.038f, -0.02f, -0.15f, skinMid, skinDark, skinLight, skinMid, skinLight, skinShadow);
+
+    // Forearm with sleeve - multiple segments
+    BOX3D(gunVerts, gv, -0.042f, -0.14f, -0.32f, 0.042f, -0.02f, -0.22f, sleeveMid, sleeveDark, sleeveLight, sleeveMid, sleeveLight, sleeveDark);
+    // Sleeve cuff
+    BOX3D(gunVerts, gv, -0.044f, -0.13f, -0.23f, 0.044f, -0.03f, -0.22f, cuffCol, cuffCol, cuffCol, cuffCol, cuffCol, cuffCol);
+    // Sleeve wrinkles
+    BOX3D(gunVerts, gv, -0.044f, -0.10f, -0.28f, 0.044f, -0.08f, -0.26f, sleeveDark, sleeveDark, sleeveDark, sleeveDark, sleeveMid, sleeveDark);
+    BOX3D(gunVerts, gv, -0.044f, -0.06f, -0.30f, 0.044f, -0.04f, -0.28f, sleeveDark, sleeveDark, sleeveDark, sleeveDark, sleeveMid, sleeveDark);
+
+    // Upper arm
+    BOX3D(gunVerts, gv, -0.050f, -0.18f, -0.48f, 0.050f, -0.02f, -0.32f, sleeveMid, sleeveDark, sleeveLight, sleeveMid, sleeveLight, sleeveDark);
+    // Elbow area
+    BOX3D(gunVerts, gv, -0.048f, -0.16f, -0.50f, 0.048f, -0.04f, -0.48f, sleeveDark, sleeveDark, sleeveMid, sleeveMid, sleeveMid, sleeveDark);
+
+    // Shoulder/upper arm continuing back
+    BOX3D(gunVerts, gv, -0.060f, -0.25f, -0.70f, 0.060f, -0.04f, -0.48f, sleeveMid, sleeveDark, sleeveLight, sleeveMid, sleeveLight, sleeveDark);
+    BOX3D(gunVerts, gv, -0.070f, -0.32f, -0.85f, 0.070f, -0.08f, -0.70f, sleeveMid, sleeveDark, sleeveLight, sleeveMid, sleeveLight, sleeveDark);
 
     *count = gv;
     return [device newBufferWithBytes:gunVerts length:sizeof(Vertex) * gv options:MTLResourceStorageModeShared];
@@ -716,153 +810,762 @@
 }
 
 + (id<MTLBuffer>)createShotgunBufferWithDevice:(id<MTLDevice>)device vertexCount:(NSUInteger *)count {
-    #define MAX_SHOTGUN_VERTS 1500
+    // Nova/XM1014 inspired pump-action shotgun with high polygon detail
+    #define MAX_SHOTGUN_VERTS 6000
     Vertex gunVerts[MAX_SHOTGUN_VERTS];
     int gv = 0;
 
-    simd_float3 gunDark = {0.15, 0.10, 0.08};
-    simd_float3 gunMid = {0.25, 0.18, 0.12};
-    simd_float3 gunLight = {0.35, 0.25, 0.18};
-    simd_float3 woodDark = {0.35, 0.22, 0.12};
-    simd_float3 woodMid = {0.50, 0.32, 0.18};
-    simd_float3 woodLight = {0.60, 0.40, 0.22};
-    simd_float3 metalDark = {0.08, 0.08, 0.10};
-    simd_float3 metalMid = {0.18, 0.18, 0.20};
+    // Colors
+    simd_float3 metalBlack = {0.06, 0.06, 0.08};
+    simd_float3 metalDark = {0.12, 0.12, 0.14};
+    simd_float3 metalMid = {0.22, 0.22, 0.26};
+    simd_float3 metalLight = {0.32, 0.32, 0.38};
+    simd_float3 metalShine = {0.42, 0.42, 0.50};
+    simd_float3 woodDark = {0.30, 0.18, 0.10};
+    simd_float3 woodMid = {0.45, 0.28, 0.15};
+    simd_float3 woodLight = {0.58, 0.38, 0.22};
+    simd_float3 woodGrain = {0.38, 0.22, 0.12};
     simd_float3 skinLight = {0.87, 0.72, 0.60};
     simd_float3 skinMid = {0.76, 0.60, 0.48};
     simd_float3 skinDark = {0.65, 0.50, 0.40};
-    simd_float3 skinShadow = {0.55, 0.42, 0.35};
-    simd_float3 sleeveLight = {0.18, 0.18, 0.20};
-    simd_float3 sleeveMid = {0.12, 0.12, 0.14};
-    simd_float3 sleeveDark = {0.08, 0.08, 0.10};
+    simd_float3 skinShadow = {0.50, 0.38, 0.30};
+    simd_float3 sleeveLight = {0.22, 0.24, 0.20};
+    simd_float3 sleeveMid = {0.15, 0.17, 0.14};
+    simd_float3 sleeveDark = {0.10, 0.12, 0.09};
+    simd_float3 cuffCol = {0.18, 0.18, 0.16};
 
-    // Long barrel (shotgun is longer than pistol)
-    BOX3D(gunVerts, gv, -0.025f, 0.0f, -0.12f, 0.025f, 0.035f, 0.30f, metalMid, metalDark, metalMid, metalMid, metalMid, metalDark);
-    // Second barrel (double barrel shotgun)
-    BOX3D(gunVerts, gv, -0.025f, 0.035f, -0.12f, 0.025f, 0.07f, 0.30f, metalMid, metalDark, metalMid, metalMid, metalMid, metalDark);
-    // Receiver
-    BOX3D(gunVerts, gv, -0.035f, -0.02f, -0.15f, 0.035f, 0.08f, -0.02f, gunMid, gunDark, gunLight, gunMid, gunLight, gunDark);
-    // Wooden stock
-    BOX3D(gunVerts, gv, -0.03f, -0.12f, -0.35f, 0.03f, 0.02f, -0.12f, woodMid, woodDark, woodLight, woodMid, woodLight, woodDark);
-    BOX3D(gunVerts, gv, -0.025f, -0.08f, -0.55f, 0.025f, -0.02f, -0.35f, woodMid, woodDark, woodLight, woodMid, woodLight, woodDark);
-    // Trigger guard
-    BOX3D(gunVerts, gv, -0.02f, -0.06f, -0.10f, 0.02f, -0.02f, -0.02f, metalDark, metalDark, metalDark, metalDark, metalDark, metalDark);
-    // Hands
-    BOX3D(gunVerts, gv, -0.04f, -0.10f, -0.05f, 0.04f, 0.02f, 0.08f, skinMid, skinDark, skinLight, skinMid, skinLight, skinShadow);
-    BOX3D(gunVerts, gv, -0.05f, -0.16f, -0.30f, 0.05f, 0.0f, -0.13f, sleeveMid, sleeveDark, sleeveLight, sleeveMid, sleeveLight, sleeveDark);
-    BOX3D(gunVerts, gv, -0.06f, -0.22f, -0.50f, 0.06f, -0.02f, -0.30f, sleeveMid, sleeveDark, sleeveLight, sleeveMid, sleeveLight, sleeveDark);
-    BOX3D(gunVerts, gv, -0.08f, -0.35f, -0.80f, 0.08f, -0.05f, -0.50f, sleeveMid, sleeveDark, sleeveLight, sleeveMid, sleeveLight, sleeveDark);
+    // === BARREL - Octagonal long barrel ===
+    float bx = 0.0f, by = 0.035f;
+    float br = 0.018f;  // barrel radius
+    for (int i = 0; i < 8; i++) {
+        float a1 = i * M_PI / 4.0f;
+        float a2 = (i + 1) * M_PI / 4.0f;
+        float x1 = bx + br * cosf(a1), y1 = by + br * sinf(a1);
+        float x2 = bx + br * cosf(a2), y2 = by + br * sinf(a2);
+        simd_float3 col = (i % 2 == 0) ? metalDark : metalBlack;
+        gunVerts[gv++] = (Vertex){{x1, y1, -0.05f}, col};
+        gunVerts[gv++] = (Vertex){{x2, y2, -0.05f}, col};
+        gunVerts[gv++] = (Vertex){{x2, y2, 0.38f}, col};
+        gunVerts[gv++] = (Vertex){{x1, y1, -0.05f}, col};
+        gunVerts[gv++] = (Vertex){{x2, y2, 0.38f}, col};
+        gunVerts[gv++] = (Vertex){{x1, y1, 0.38f}, col};
+    }
+    // Barrel muzzle
+    BOX3D(gunVerts, gv, -0.022f, 0.013f, 0.38f, 0.022f, 0.057f, 0.42f, metalBlack, metalBlack, metalBlack, metalBlack, metalDark, metalBlack);
+    // Barrel vent rib (top sight rail)
+    BOX3D(gunVerts, gv, -0.004f, 0.053f, 0.0f, 0.004f, 0.062f, 0.36f, metalMid, metalDark, metalMid, metalMid, metalLight, metalDark);
+    // Front bead sight
+    BOX3D(gunVerts, gv, -0.005f, 0.062f, 0.34f, 0.005f, 0.075f, 0.37f, metalShine, metalMid, metalShine, metalShine, metalShine, metalMid);
+
+    // === MAGAZINE TUBE (under barrel) ===
+    float mx = 0.0f, my = -0.005f;
+    float mr = 0.016f;
+    for (int i = 0; i < 8; i++) {
+        float a1 = i * M_PI / 4.0f;
+        float a2 = (i + 1) * M_PI / 4.0f;
+        float x1 = mx + mr * cosf(a1), y1 = my + mr * sinf(a1);
+        float x2 = mx + mr * cosf(a2), y2 = my + mr * sinf(a2);
+        simd_float3 col = (i % 2 == 0) ? metalMid : metalDark;
+        gunVerts[gv++] = (Vertex){{x1, y1, 0.0f}, col};
+        gunVerts[gv++] = (Vertex){{x2, y2, 0.0f}, col};
+        gunVerts[gv++] = (Vertex){{x2, y2, 0.28f}, col};
+        gunVerts[gv++] = (Vertex){{x1, y1, 0.0f}, col};
+        gunVerts[gv++] = (Vertex){{x2, y2, 0.28f}, col};
+        gunVerts[gv++] = (Vertex){{x1, y1, 0.28f}, col};
+    }
+    // Magazine tube cap
+    BOX3D(gunVerts, gv, -0.018f, -0.023f, 0.28f, 0.018f, 0.013f, 0.31f, metalDark, metalDark, metalDark, metalDark, metalMid, metalDark);
+
+    // === PUMP FOREND (wooden) ===
+    BOX3D(gunVerts, gv, -0.032f, -0.035f, 0.08f, 0.032f, 0.025f, 0.22f, woodMid, woodDark, woodLight, woodMid, woodLight, woodDark);
+    // Forend grooves for grip
+    for (int i = 0; i < 6; i++) {
+        float z = 0.10f + i * 0.018f;
+        BOX3D(gunVerts, gv, -0.034f, -0.03f, z, 0.034f, -0.025f, z+0.008f, woodGrain, woodDark, woodGrain, woodGrain, woodDark, woodDark);
+        BOX3D(gunVerts, gv, -0.034f, 0.015f, z, 0.034f, 0.02f, z+0.008f, woodGrain, woodDark, woodGrain, woodGrain, woodDark, woodDark);
+    }
+    // Forend front cap
+    BOX3D(gunVerts, gv, -0.028f, -0.030f, 0.22f, 0.028f, 0.020f, 0.24f, metalDark, metalDark, metalDark, metalDark, metalMid, metalDark);
+
+    // === RECEIVER ===
+    BOX3D(gunVerts, gv, -0.038f, -0.02f, -0.14f, 0.038f, 0.055f, 0.0f, metalMid, metalDark, metalLight, metalMid, metalLight, metalDark);
+    // Ejection port
+    BOX3D(gunVerts, gv, 0.038f, 0.005f, -0.08f, 0.044f, 0.045f, -0.02f, metalBlack, metalBlack, metalBlack, metalBlack, metalBlack, metalBlack);
+    // Loading port (bottom)
+    BOX3D(gunVerts, gv, -0.025f, -0.025f, -0.10f, 0.025f, -0.02f, -0.02f, metalBlack, metalBlack, metalBlack, metalBlack, metalBlack, metalBlack);
+    // Action bar
+    BOX3D(gunVerts, gv, -0.012f, -0.02f, 0.0f, 0.012f, 0.015f, 0.10f, metalDark, metalBlack, metalMid, metalMid, metalMid, metalBlack);
+    // Safety button
+    BOX3D(gunVerts, gv, -0.008f, 0.055f, -0.12f, 0.008f, 0.068f, -0.10f, metalShine, metalMid, metalShine, metalShine, metalShine, metalMid);
+
+    // === TRIGGER GUARD ===
+    BOX3D(gunVerts, gv, -0.025f, -0.045f, -0.10f, 0.025f, -0.035f, -0.02f, metalDark, metalBlack, metalDark, metalDark, metalDark, metalBlack);
+    BOX3D(gunVerts, gv, -0.025f, -0.065f, -0.10f, -0.020f, -0.035f, -0.02f, metalDark, metalBlack, metalDark, metalDark, metalDark, metalBlack);
+    BOX3D(gunVerts, gv, 0.020f, -0.065f, -0.10f, 0.025f, -0.035f, -0.02f, metalDark, metalBlack, metalDark, metalDark, metalDark, metalBlack);
+    BOX3D(gunVerts, gv, -0.025f, -0.065f, -0.10f, 0.025f, -0.060f, -0.095f, metalDark, metalBlack, metalDark, metalDark, metalDark, metalBlack);
+    // Trigger
+    BOX3D(gunVerts, gv, -0.005f, -0.055f, -0.06f, 0.005f, -0.035f, -0.05f, metalMid, metalDark, metalLight, metalMid, metalLight, metalDark);
+
+    // === WOODEN STOCK ===
+    // Grip area
+    BOX3D(gunVerts, gv, -0.028f, -0.10f, -0.18f, 0.028f, -0.02f, -0.10f, woodMid, woodDark, woodLight, woodMid, woodLight, woodDark);
+    // Grip texture
+    for (int i = 0; i < 4; i++) {
+        float y = -0.09f + i * 0.016f;
+        BOX3D(gunVerts, gv, -0.030f, y, -0.175f, 0.030f, y+0.005f, -0.105f, woodGrain, woodDark, woodGrain, woodGrain, woodDark, woodDark);
+    }
+    // Stock body
+    BOX3D(gunVerts, gv, -0.025f, -0.06f, -0.38f, 0.025f, 0.04f, -0.14f, woodMid, woodDark, woodLight, woodMid, woodLight, woodDark);
+    // Stock bottom curve
+    BOX3D(gunVerts, gv, -0.023f, -0.08f, -0.36f, 0.023f, -0.06f, -0.20f, woodMid, woodDark, woodLight, woodMid, woodLight, woodDark);
+    // Butt pad
+    BOX3D(gunVerts, gv, -0.028f, -0.08f, -0.40f, 0.028f, 0.045f, -0.38f, metalDark, metalBlack, metalDark, metalDark, metalDark, metalBlack);
+    // Butt pad texture lines
+    for (int i = 0; i < 4; i++) {
+        float y = -0.06f + i * 0.025f;
+        BOX3D(gunVerts, gv, -0.030f, y, -0.405f, 0.030f, y+0.008f, -0.398f, metalBlack, metalBlack, metalBlack, metalBlack, metalBlack, metalBlack);
+    }
+    // Cheek rest
+    BOX3D(gunVerts, gv, -0.018f, 0.04f, -0.32f, 0.018f, 0.055f, -0.18f, woodMid, woodDark, woodLight, woodMid, woodLight, woodDark);
+
+    // === HANDS ===
+    // Front hand on forend
+    BOX3D(gunVerts, gv, -0.038f, -0.06f, 0.10f, 0.038f, 0.0f, 0.20f, skinMid, skinDark, skinLight, skinMid, skinLight, skinShadow);
+    // Front hand fingers
+    for (int f = 0; f < 4; f++) {
+        float x = -0.028f + f * 0.016f;
+        BOX3D(gunVerts, gv, x, -0.065f, 0.12f, x+0.012f, -0.04f, 0.18f, skinMid, skinShadow, skinLight, skinMid, skinLight, skinDark);
+    }
+    // Front thumb
+    BOX3D(gunVerts, gv, 0.038f, -0.02f, 0.12f, 0.055f, 0.01f, 0.18f, skinMid, skinDark, skinLight, skinMid, skinLight, skinDark);
+
+    // Rear hand on grip
+    BOX3D(gunVerts, gv, -0.035f, -0.12f, -0.20f, 0.035f, -0.04f, -0.10f, skinMid, skinDark, skinLight, skinMid, skinLight, skinShadow);
+    // Index finger on trigger
+    BOX3D(gunVerts, gv, -0.008f, -0.06f, -0.08f, 0.008f, -0.035f, -0.05f, skinMid, skinShadow, skinLight, skinMid, skinLight, skinDark);
+    // Other fingers
+    for (int f = 0; f < 3; f++) {
+        float y = -0.08f - f * 0.015f;
+        BOX3D(gunVerts, gv, -0.038f, y-0.012f, -0.18f, -0.025f, y, -0.11f, skinMid, skinDark, skinLight, skinMid, skinLight, skinDark);
+    }
+    // Rear thumb
+    BOX3D(gunVerts, gv, 0.035f, -0.06f, -0.18f, 0.052f, -0.035f, -0.12f, skinMid, skinDark, skinLight, skinMid, skinLight, skinDark);
+
+    // === ARMS ===
+    // Front wrist/forearm
+    BOX3D(gunVerts, gv, -0.042f, -0.10f, -0.05f, 0.042f, 0.0f, 0.10f, sleeveMid, sleeveDark, sleeveLight, sleeveMid, sleeveLight, sleeveDark);
+    BOX3D(gunVerts, gv, -0.044f, -0.09f, -0.04f, 0.044f, -0.01f, -0.03f, cuffCol, cuffCol, cuffCol, cuffCol, cuffCol, cuffCol);
+
+    // Rear wrist
+    BOX3D(gunVerts, gv, -0.040f, -0.14f, -0.28f, 0.040f, -0.04f, -0.18f, skinMid, skinDark, skinLight, skinMid, skinLight, skinShadow);
+    // Rear forearm
+    BOX3D(gunVerts, gv, -0.045f, -0.16f, -0.40f, 0.045f, -0.04f, -0.28f, sleeveMid, sleeveDark, sleeveLight, sleeveMid, sleeveLight, sleeveDark);
+    BOX3D(gunVerts, gv, -0.047f, -0.15f, -0.30f, 0.047f, -0.05f, -0.28f, cuffCol, cuffCol, cuffCol, cuffCol, cuffCol, cuffCol);
+    // Upper arms
+    BOX3D(gunVerts, gv, -0.055f, -0.22f, -0.60f, 0.055f, -0.04f, -0.40f, sleeveMid, sleeveDark, sleeveLight, sleeveMid, sleeveLight, sleeveDark);
+    BOX3D(gunVerts, gv, -0.065f, -0.30f, -0.85f, 0.065f, -0.06f, -0.60f, sleeveMid, sleeveDark, sleeveLight, sleeveMid, sleeveLight, sleeveDark);
 
     *count = gv;
     return [device newBufferWithBytes:gunVerts length:sizeof(Vertex) * gv options:MTLResourceStorageModeShared];
 }
 
 + (id<MTLBuffer>)createRifleBufferWithDevice:(id<MTLDevice>)device vertexCount:(NSUInteger *)count {
-    #define MAX_RIFLE_VERTS 1500
+    // M4A1-S / AK-47 inspired assault rifle with high polygon detail
+    #define MAX_RIFLE_VERTS 7000
     Vertex gunVerts[MAX_RIFLE_VERTS];
     int gv = 0;
 
+    // Colors
+    simd_float3 gunBlack = {0.05, 0.05, 0.07};
     simd_float3 gunDark = {0.10, 0.10, 0.12};
-    simd_float3 gunMid = {0.20, 0.20, 0.22};
-    simd_float3 gunLight = {0.30, 0.30, 0.32};
-    simd_float3 gunAccent = {0.15, 0.15, 0.17};
+    simd_float3 gunMid = {0.18, 0.18, 0.22};
+    simd_float3 gunLight = {0.28, 0.28, 0.34};
+    simd_float3 gunShine = {0.38, 0.38, 0.45};
+    simd_float3 railDark = {0.08, 0.08, 0.10};
+    simd_float3 railMid = {0.15, 0.15, 0.18};
+    simd_float3 redDot = {1.0, 0.1, 0.1};
+    simd_float3 lensBlue = {0.2, 0.3, 0.5};
+    simd_float3 magDark = {0.12, 0.11, 0.10};
+    simd_float3 magMid = {0.18, 0.16, 0.14};
     simd_float3 skinLight = {0.87, 0.72, 0.60};
     simd_float3 skinMid = {0.76, 0.60, 0.48};
     simd_float3 skinDark = {0.65, 0.50, 0.40};
-    simd_float3 skinShadow = {0.55, 0.42, 0.35};
-    simd_float3 sleeveLight = {0.18, 0.18, 0.20};
-    simd_float3 sleeveMid = {0.12, 0.12, 0.14};
-    simd_float3 sleeveDark = {0.08, 0.08, 0.10};
+    simd_float3 skinShadow = {0.50, 0.38, 0.30};
+    simd_float3 sleeveLight = {0.22, 0.24, 0.20};
+    simd_float3 sleeveMid = {0.15, 0.17, 0.14};
+    simd_float3 sleeveDark = {0.10, 0.12, 0.09};
+    simd_float3 cuffCol = {0.18, 0.18, 0.16};
+    simd_float3 gloveDark = {0.08, 0.08, 0.08};
+    simd_float3 gloveMid = {0.14, 0.14, 0.14};
 
-    // Long barrel
-    BOX3D(gunVerts, gv, -0.018f, 0.01f, -0.10f, 0.018f, 0.04f, 0.35f, gunDark, gunDark, gunDark, gunDark, gunDark, gunDark);
-    // Main body/receiver
-    BOX3D(gunVerts, gv, -0.035f, 0.0f, -0.18f, 0.035f, 0.05f, 0.05f, gunMid, gunDark, gunLight, gunMid, gunLight, gunDark);
-    // Magazine
-    BOX3D(gunVerts, gv, -0.02f, -0.12f, -0.08f, 0.02f, 0.0f, 0.02f, gunAccent, gunDark, gunAccent, gunAccent, gunDark, gunDark);
-    // Stock
-    BOX3D(gunVerts, gv, -0.025f, -0.04f, -0.35f, 0.025f, 0.04f, -0.15f, gunMid, gunDark, gunLight, gunMid, gunLight, gunDark);
-    // Grip
-    BOX3D(gunVerts, gv, -0.02f, -0.10f, -0.18f, 0.02f, 0.0f, -0.10f, gunDark, gunDark, gunMid, gunMid, gunDark, gunDark);
-    // Front grip
-    BOX3D(gunVerts, gv, -0.02f, -0.06f, 0.05f, 0.02f, 0.0f, 0.15f, gunDark, gunDark, gunMid, gunMid, gunDark, gunDark);
-    // Sight
-    BOX3D(gunVerts, gv, -0.01f, 0.05f, -0.05f, 0.01f, 0.07f, 0.02f, gunDark, gunDark, gunDark, gunDark, gunLight, gunDark);
-    // Hands
-    BOX3D(gunVerts, gv, -0.04f, -0.10f, 0.0f, 0.04f, 0.02f, 0.12f, skinMid, skinDark, skinLight, skinMid, skinLight, skinShadow);
-    BOX3D(gunVerts, gv, -0.04f, -0.12f, -0.20f, 0.04f, 0.0f, -0.08f, skinMid, skinDark, skinLight, skinMid, skinLight, skinShadow);
-    BOX3D(gunVerts, gv, -0.05f, -0.16f, -0.38f, 0.05f, 0.0f, -0.18f, sleeveMid, sleeveDark, sleeveLight, sleeveMid, sleeveLight, sleeveDark);
-    BOX3D(gunVerts, gv, -0.06f, -0.22f, -0.55f, 0.06f, -0.02f, -0.38f, sleeveMid, sleeveDark, sleeveLight, sleeveMid, sleeveLight, sleeveDark);
-    BOX3D(gunVerts, gv, -0.08f, -0.35f, -0.85f, 0.08f, -0.05f, -0.55f, sleeveMid, sleeveDark, sleeveLight, sleeveMid, sleeveLight, sleeveDark);
+    // === BARREL - Octagonal ===
+    float bx = 0.0f, by = 0.025f;
+    float br = 0.010f;
+    for (int i = 0; i < 8; i++) {
+        float a1 = i * M_PI / 4.0f;
+        float a2 = (i + 1) * M_PI / 4.0f;
+        float x1 = bx + br * cosf(a1), y1 = by + br * sinf(a1);
+        float x2 = bx + br * cosf(a2), y2 = by + br * sinf(a2);
+        simd_float3 col = (i % 2 == 0) ? gunDark : gunBlack;
+        gunVerts[gv++] = (Vertex){{x1, y1, 0.10f}, col};
+        gunVerts[gv++] = (Vertex){{x2, y2, 0.10f}, col};
+        gunVerts[gv++] = (Vertex){{x2, y2, 0.40f}, col};
+        gunVerts[gv++] = (Vertex){{x1, y1, 0.10f}, col};
+        gunVerts[gv++] = (Vertex){{x2, y2, 0.40f}, col};
+        gunVerts[gv++] = (Vertex){{x1, y1, 0.40f}, col};
+    }
+    // Muzzle brake/flash hider
+    BOX3D(gunVerts, gv, -0.014f, 0.011f, 0.40f, 0.014f, 0.039f, 0.46f, gunDark, gunBlack, gunDark, gunDark, gunMid, gunBlack);
+    // Muzzle brake slots
+    for (int i = 0; i < 3; i++) {
+        float z = 0.41f + i * 0.015f;
+        BOX3D(gunVerts, gv, -0.016f, 0.020f, z, -0.012f, 0.030f, z+0.008f, gunBlack, gunBlack, gunBlack, gunBlack, gunBlack, gunBlack);
+        BOX3D(gunVerts, gv, 0.012f, 0.020f, z, 0.016f, 0.030f, z+0.008f, gunBlack, gunBlack, gunBlack, gunBlack, gunBlack, gunBlack);
+    }
+    // Front sight post
+    BOX3D(gunVerts, gv, -0.003f, 0.035f, 0.32f, 0.003f, 0.055f, 0.35f, gunDark, gunDark, gunDark, gunDark, gunShine, gunDark);
+    // Front sight base
+    BOX3D(gunVerts, gv, -0.012f, 0.015f, 0.30f, 0.012f, 0.040f, 0.36f, gunMid, gunDark, gunMid, gunMid, gunLight, gunDark);
+    // Gas block
+    BOX3D(gunVerts, gv, -0.015f, 0.010f, 0.26f, 0.015f, 0.045f, 0.30f, gunMid, gunDark, gunLight, gunMid, gunLight, gunDark);
+
+    // === HANDGUARD (RIS rail system) ===
+    BOX3D(gunVerts, gv, -0.028f, -0.01f, 0.06f, 0.028f, 0.045f, 0.26f, gunMid, gunDark, gunLight, gunMid, gunLight, gunDark);
+    // Top rail with grooves
+    for (int i = 0; i < 10; i++) {
+        float z = 0.08f + i * 0.017f;
+        BOX3D(gunVerts, gv, -0.020f, 0.045f, z, 0.020f, 0.052f, z+0.010f, railDark, railDark, railDark, railDark, railMid, railDark);
+    }
+    // Side rails
+    for (int i = 0; i < 8; i++) {
+        float z = 0.10f + i * 0.018f;
+        BOX3D(gunVerts, gv, -0.030f, 0.008f, z, -0.028f, 0.032f, z+0.010f, railDark, railDark, railDark, railDark, railDark, railDark);
+        BOX3D(gunVerts, gv, 0.028f, 0.008f, z, 0.030f, 0.032f, z+0.010f, railDark, railDark, railDark, railDark, railDark, railDark);
+    }
+    // Bottom rail
+    for (int i = 0; i < 8; i++) {
+        float z = 0.10f + i * 0.018f;
+        BOX3D(gunVerts, gv, -0.018f, -0.015f, z, 0.018f, -0.010f, z+0.010f, railDark, railDark, railDark, railDark, railDark, railDark);
+    }
+    // Vent holes on sides
+    for (int i = 0; i < 4; i++) {
+        float z = 0.12f + i * 0.035f;
+        BOX3D(gunVerts, gv, -0.032f, 0.012f, z, -0.028f, 0.028f, z+0.020f, gunBlack, gunBlack, gunBlack, gunBlack, gunBlack, gunBlack);
+        BOX3D(gunVerts, gv, 0.028f, 0.012f, z, 0.032f, 0.028f, z+0.020f, gunBlack, gunBlack, gunBlack, gunBlack, gunBlack, gunBlack);
+    }
+
+    // === VERTICAL FOREGRIP ===
+    BOX3D(gunVerts, gv, -0.012f, -0.08f, 0.14f, 0.012f, -0.01f, 0.20f, gunMid, gunDark, gunLight, gunMid, gunLight, gunDark);
+    // Grip texture
+    for (int i = 0; i < 3; i++) {
+        float y = -0.07f + i * 0.018f;
+        BOX3D(gunVerts, gv, -0.014f, y, 0.145f, 0.014f, y+0.006f, 0.195f, gunDark, gunBlack, gunDark, gunDark, gunDark, gunBlack);
+    }
+
+    // === UPPER RECEIVER ===
+    BOX3D(gunVerts, gv, -0.030f, 0.005f, -0.12f, 0.030f, 0.050f, 0.08f, gunMid, gunDark, gunLight, gunMid, gunLight, gunDark);
+    // Ejection port cover
+    BOX3D(gunVerts, gv, 0.030f, 0.015f, -0.06f, 0.035f, 0.042f, 0.02f, gunLight, gunMid, gunLight, gunLight, gunLight, gunMid);
+    // Forward assist
+    BOX3D(gunVerts, gv, 0.030f, 0.025f, -0.08f, 0.042f, 0.038f, -0.06f, gunMid, gunDark, gunLight, gunMid, gunLight, gunDark);
+    // Charging handle
+    BOX3D(gunVerts, gv, -0.008f, 0.045f, -0.14f, 0.008f, 0.058f, -0.10f, gunMid, gunDark, gunMid, gunMid, gunLight, gunDark);
+    // Top rail continuation
+    for (int i = 0; i < 6; i++) {
+        float z = -0.10f + i * 0.022f;
+        BOX3D(gunVerts, gv, -0.018f, 0.050f, z, 0.018f, 0.058f, z+0.014f, railDark, railDark, railDark, railDark, railMid, railDark);
+    }
+
+    // === RED DOT SIGHT ===
+    // Sight body
+    BOX3D(gunVerts, gv, -0.020f, 0.058f, -0.06f, 0.020f, 0.095f, 0.04f, gunDark, gunBlack, gunMid, gunMid, gunMid, gunBlack);
+    // Lens housing front
+    BOX3D(gunVerts, gv, -0.018f, 0.062f, 0.04f, 0.018f, 0.092f, 0.05f, gunDark, gunDark, gunDark, gunDark, gunMid, gunDark);
+    // Lens (blue tint)
+    BOX3D(gunVerts, gv, -0.014f, 0.066f, 0.048f, 0.014f, 0.088f, 0.052f, lensBlue, lensBlue, lensBlue, lensBlue, lensBlue, lensBlue);
+    // Red dot (center)
+    BOX3D(gunVerts, gv, -0.002f, 0.075f, 0.051f, 0.002f, 0.079f, 0.053f, redDot, redDot, redDot, redDot, redDot, redDot);
+    // Lens housing rear
+    BOX3D(gunVerts, gv, -0.018f, 0.062f, -0.07f, 0.018f, 0.092f, -0.06f, gunDark, gunDark, gunDark, gunDark, gunMid, gunDark);
+    // Adjustment knobs
+    BOX3D(gunVerts, gv, 0.020f, 0.072f, -0.02f, 0.028f, 0.082f, 0.0f, gunMid, gunDark, gunLight, gunMid, gunLight, gunDark);
+    BOX3D(gunVerts, gv, -0.008f, 0.095f, -0.02f, 0.008f, 0.105f, 0.0f, gunMid, gunDark, gunLight, gunMid, gunLight, gunDark);
+
+    // === LOWER RECEIVER ===
+    BOX3D(gunVerts, gv, -0.028f, -0.02f, -0.14f, 0.028f, 0.008f, -0.02f, gunMid, gunDark, gunLight, gunMid, gunLight, gunDark);
+    // Magazine well
+    BOX3D(gunVerts, gv, -0.022f, -0.025f, -0.10f, 0.022f, -0.02f, 0.0f, gunDark, gunBlack, gunDark, gunDark, gunDark, gunBlack);
+    // Trigger guard
+    BOX3D(gunVerts, gv, -0.022f, -0.05f, -0.10f, 0.022f, -0.04f, -0.02f, gunDark, gunBlack, gunDark, gunDark, gunDark, gunBlack);
+    BOX3D(gunVerts, gv, -0.022f, -0.065f, -0.10f, -0.018f, -0.04f, -0.02f, gunDark, gunBlack, gunDark, gunDark, gunDark, gunBlack);
+    BOX3D(gunVerts, gv, 0.018f, -0.065f, -0.10f, 0.022f, -0.04f, -0.02f, gunDark, gunBlack, gunDark, gunDark, gunDark, gunBlack);
+    BOX3D(gunVerts, gv, -0.022f, -0.065f, -0.10f, 0.022f, -0.060f, -0.095f, gunDark, gunBlack, gunDark, gunDark, gunDark, gunBlack);
+    // Trigger
+    BOX3D(gunVerts, gv, -0.004f, -0.055f, -0.06f, 0.004f, -0.04f, -0.05f, gunShine, gunMid, gunShine, gunShine, gunShine, gunMid);
+    // Magazine release
+    BOX3D(gunVerts, gv, 0.028f, -0.01f, -0.06f, 0.035f, 0.005f, -0.04f, gunMid, gunDark, gunLight, gunMid, gunLight, gunDark);
+    // Bolt release
+    BOX3D(gunVerts, gv, -0.032f, 0.0f, -0.08f, -0.028f, 0.025f, -0.05f, gunMid, gunDark, gunLight, gunMid, gunLight, gunDark);
+    // Selector switch
+    BOX3D(gunVerts, gv, -0.032f, -0.01f, -0.12f, -0.028f, 0.015f, -0.10f, gunShine, gunMid, gunShine, gunShine, gunShine, gunMid);
+
+    // === PISTOL GRIP ===
+    BOX3D(gunVerts, gv, -0.020f, -0.12f, -0.18f, 0.020f, -0.02f, -0.10f, gunMid, gunDark, gunLight, gunMid, gunLight, gunDark);
+    // Grip texture
+    for (int i = 0; i < 5; i++) {
+        float y = -0.11f + i * 0.016f;
+        BOX3D(gunVerts, gv, -0.022f, y, -0.175f, 0.022f, y+0.005f, -0.105f, gunDark, gunBlack, gunDark, gunDark, gunDark, gunBlack);
+    }
+    // Grip bottom
+    BOX3D(gunVerts, gv, -0.022f, -0.125f, -0.18f, 0.022f, -0.12f, -0.10f, gunLight, gunMid, gunLight, gunLight, gunMid, gunDark);
+
+    // === CURVED MAGAZINE ===
+    BOX3D(gunVerts, gv, -0.016f, -0.14f, -0.08f, 0.016f, -0.02f, 0.0f, magMid, magDark, magMid, magMid, magMid, magDark);
+    BOX3D(gunVerts, gv, -0.015f, -0.16f, -0.06f, 0.015f, -0.14f, 0.02f, magMid, magDark, magMid, magMid, magMid, magDark);
+    // Magazine ribs
+    for (int i = 0; i < 3; i++) {
+        float y = -0.12f - i * 0.025f;
+        BOX3D(gunVerts, gv, -0.017f, y, -0.075f, 0.017f, y+0.008f, -0.005f, magDark, magDark, magDark, magDark, magDark, magDark);
+    }
+    // Magazine base plate
+    BOX3D(gunVerts, gv, -0.018f, -0.165f, -0.05f, 0.018f, -0.16f, 0.025f, gunDark, gunBlack, gunDark, gunDark, gunDark, gunBlack);
+
+    // === COLLAPSIBLE STOCK ===
+    // Buffer tube
+    float tx = 0.0f, ty = 0.015f;
+    float tr = 0.016f;
+    for (int i = 0; i < 8; i++) {
+        float a1 = i * M_PI / 4.0f;
+        float a2 = (i + 1) * M_PI / 4.0f;
+        float x1 = tx + tr * cosf(a1), y1 = ty + tr * sinf(a1);
+        float x2 = tx + tr * cosf(a2), y2 = ty + tr * sinf(a2);
+        simd_float3 col = (i % 2 == 0) ? gunMid : gunDark;
+        gunVerts[gv++] = (Vertex){{x1, y1, -0.14f}, col};
+        gunVerts[gv++] = (Vertex){{x2, y2, -0.14f}, col};
+        gunVerts[gv++] = (Vertex){{x2, y2, -0.32f}, col};
+        gunVerts[gv++] = (Vertex){{x1, y1, -0.14f}, col};
+        gunVerts[gv++] = (Vertex){{x2, y2, -0.32f}, col};
+        gunVerts[gv++] = (Vertex){{x1, y1, -0.32f}, col};
+    }
+    // Stock body
+    BOX3D(gunVerts, gv, -0.022f, -0.02f, -0.42f, 0.022f, 0.045f, -0.30f, gunMid, gunDark, gunLight, gunMid, gunLight, gunDark);
+    // Stock cheek rest
+    BOX3D(gunVerts, gv, -0.018f, 0.045f, -0.40f, 0.018f, 0.058f, -0.32f, gunMid, gunDark, gunLight, gunMid, gunLight, gunDark);
+    // Stock butt pad
+    BOX3D(gunVerts, gv, -0.025f, -0.025f, -0.44f, 0.025f, 0.050f, -0.42f, gunDark, gunBlack, gunDark, gunDark, gunDark, gunBlack);
+    // Stock adjustment lever
+    BOX3D(gunVerts, gv, -0.008f, -0.01f, -0.34f, 0.008f, 0.005f, -0.32f, gunShine, gunMid, gunShine, gunShine, gunShine, gunMid);
+    // Sling mount
+    BOX3D(gunVerts, gv, -0.025f, -0.015f, -0.38f, -0.020f, 0.035f, -0.36f, gunDark, gunBlack, gunDark, gunDark, gunDark, gunBlack);
+
+    // === HANDS WITH TACTICAL GLOVES ===
+    // Front hand on foregrip
+    BOX3D(gunVerts, gv, -0.018f, -0.10f, 0.12f, 0.018f, -0.06f, 0.22f, gloveMid, gloveDark, gloveMid, gloveMid, gloveMid, gloveDark);
+    // Front fingers wrapped around grip
+    for (int f = 0; f < 4; f++) {
+        float fy = -0.095f + f * 0.008f;
+        BOX3D(gunVerts, gv, 0.012f, fy, 0.14f, 0.028f, fy+0.012f, 0.20f, gloveMid, gloveDark, gloveMid, gloveMid, gloveMid, gloveDark);
+    }
+    // Front thumb
+    BOX3D(gunVerts, gv, -0.018f, -0.065f, 0.16f, -0.030f, -0.045f, 0.20f, gloveMid, gloveDark, gloveMid, gloveMid, gloveMid, gloveDark);
+
+    // Rear hand on pistol grip
+    BOX3D(gunVerts, gv, -0.028f, -0.13f, -0.20f, 0.028f, -0.06f, -0.10f, gloveMid, gloveDark, gloveMid, gloveMid, gloveMid, gloveDark);
+    // Index finger on trigger
+    BOX3D(gunVerts, gv, -0.006f, -0.06f, -0.08f, 0.006f, -0.04f, -0.05f, skinMid, skinShadow, skinLight, skinMid, skinLight, skinDark);
+    // Other fingers
+    for (int f = 0; f < 3; f++) {
+        float y = -0.09f - f * 0.014f;
+        BOX3D(gunVerts, gv, -0.032f, y-0.010f, -0.18f, -0.018f, y, -0.11f, gloveMid, gloveDark, gloveMid, gloveMid, gloveMid, gloveDark);
+    }
+    // Rear thumb
+    BOX3D(gunVerts, gv, 0.028f, -0.08f, -0.18f, 0.045f, -0.055f, -0.12f, gloveMid, gloveDark, gloveMid, gloveMid, gloveMid, gloveDark);
+
+    // === ARMS ===
+    // Front wrist
+    BOX3D(gunVerts, gv, -0.025f, -0.12f, 0.02f, 0.025f, -0.05f, 0.14f, sleeveMid, sleeveDark, sleeveLight, sleeveMid, sleeveLight, sleeveDark);
+    BOX3D(gunVerts, gv, -0.027f, -0.11f, 0.03f, 0.027f, -0.06f, 0.05f, cuffCol, cuffCol, cuffCol, cuffCol, cuffCol, cuffCol);
+    // Front forearm
+    BOX3D(gunVerts, gv, -0.035f, -0.15f, -0.12f, 0.035f, -0.05f, 0.04f, sleeveMid, sleeveDark, sleeveLight, sleeveMid, sleeveLight, sleeveDark);
+
+    // Rear wrist
+    BOX3D(gunVerts, gv, -0.035f, -0.15f, -0.30f, 0.035f, -0.06f, -0.18f, skinMid, skinDark, skinLight, skinMid, skinLight, skinShadow);
+    // Rear forearm
+    BOX3D(gunVerts, gv, -0.042f, -0.18f, -0.45f, 0.042f, -0.06f, -0.30f, sleeveMid, sleeveDark, sleeveLight, sleeveMid, sleeveLight, sleeveDark);
+    BOX3D(gunVerts, gv, -0.044f, -0.17f, -0.32f, 0.044f, -0.07f, -0.30f, cuffCol, cuffCol, cuffCol, cuffCol, cuffCol, cuffCol);
+
+    // Upper arms
+    BOX3D(gunVerts, gv, -0.050f, -0.22f, -0.65f, 0.050f, -0.06f, -0.45f, sleeveMid, sleeveDark, sleeveLight, sleeveMid, sleeveLight, sleeveDark);
+    BOX3D(gunVerts, gv, -0.060f, -0.30f, -0.85f, 0.060f, -0.08f, -0.65f, sleeveMid, sleeveDark, sleeveLight, sleeveMid, sleeveLight, sleeveDark);
 
     *count = gv;
     return [device newBufferWithBytes:gunVerts length:sizeof(Vertex) * gv options:MTLResourceStorageModeShared];
 }
 
 + (id<MTLBuffer>)createRocketLauncherBufferWithDevice:(id<MTLDevice>)device vertexCount:(NSUInteger *)count {
-    #define MAX_ROCKET_VERTS 1500
+    // RPG-7 / AT4 inspired rocket launcher with high polygon detail
+    #define MAX_ROCKET_VERTS 6500
     Vertex gunVerts[MAX_ROCKET_VERTS];
     int gv = 0;
 
-    simd_float3 tubeDark = {0.25, 0.30, 0.22};
-    simd_float3 tubeMid = {0.35, 0.42, 0.30};
-    simd_float3 tubeLight = {0.45, 0.52, 0.38};
+    // Colors - military olive drab with metal accents
+    simd_float3 tubeOlive = {0.32, 0.36, 0.26};
+    simd_float3 tubeDark = {0.22, 0.26, 0.18};
+    simd_float3 tubeLight = {0.42, 0.46, 0.34};
+    simd_float3 tubeBand = {0.28, 0.30, 0.24};
+    simd_float3 metalBlack = {0.06, 0.06, 0.08};
     simd_float3 metalDark = {0.12, 0.12, 0.14};
-    simd_float3 metalMid = {0.22, 0.22, 0.24};
+    simd_float3 metalMid = {0.22, 0.22, 0.26};
+    simd_float3 metalLight = {0.32, 0.32, 0.38};
+    simd_float3 woodDark = {0.28, 0.18, 0.10};
+    simd_float3 woodMid = {0.42, 0.28, 0.16};
+    simd_float3 woodLight = {0.52, 0.36, 0.22};
+    simd_float3 warningYellow = {0.85, 0.75, 0.15};
+    simd_float3 warningBlack = {0.08, 0.08, 0.08};
+    simd_float3 rocketTip = {0.70, 0.25, 0.15};
+    simd_float3 rocketBody = {0.35, 0.38, 0.28};
     simd_float3 skinLight = {0.87, 0.72, 0.60};
     simd_float3 skinMid = {0.76, 0.60, 0.48};
     simd_float3 skinDark = {0.65, 0.50, 0.40};
-    simd_float3 skinShadow = {0.55, 0.42, 0.35};
-    simd_float3 sleeveLight = {0.18, 0.18, 0.20};
-    simd_float3 sleeveMid = {0.12, 0.12, 0.14};
-    simd_float3 sleeveDark = {0.08, 0.08, 0.10};
+    simd_float3 skinShadow = {0.50, 0.38, 0.30};
+    simd_float3 sleeveLight = {0.22, 0.24, 0.20};
+    simd_float3 sleeveMid = {0.15, 0.17, 0.14};
+    simd_float3 sleeveDark = {0.10, 0.12, 0.09};
+    simd_float3 cuffCol = {0.18, 0.18, 0.16};
 
-    // Main tube (large cylinder approximated with box)
-    BOX3D(gunVerts, gv, -0.06f, -0.02f, -0.15f, 0.06f, 0.10f, 0.40f, tubeMid, tubeDark, tubeLight, tubeMid, tubeLight, tubeDark);
-    // Front opening rim
-    BOX3D(gunVerts, gv, -0.07f, -0.03f, 0.38f, 0.07f, 0.11f, 0.42f, metalDark, metalDark, metalMid, metalDark, metalMid, metalDark);
-    // Back opening
-    BOX3D(gunVerts, gv, -0.065f, -0.025f, -0.18f, 0.065f, 0.105f, -0.15f, metalDark, metalDark, metalMid, metalDark, metalMid, metalDark);
-    // Grip section
-    BOX3D(gunVerts, gv, -0.035f, -0.12f, -0.05f, 0.035f, -0.02f, 0.10f, metalMid, metalDark, metalMid, metalMid, metalMid, metalDark);
-    // Trigger area
-    BOX3D(gunVerts, gv, -0.02f, -0.08f, 0.0f, 0.02f, -0.02f, 0.06f, metalDark, metalDark, metalDark, metalDark, metalDark, metalDark);
-    // Shoulder rest
-    BOX3D(gunVerts, gv, -0.04f, -0.06f, -0.30f, 0.04f, 0.06f, -0.15f, tubeMid, tubeDark, tubeLight, tubeMid, tubeLight, tubeDark);
-    // Sight
-    BOX3D(gunVerts, gv, -0.015f, 0.10f, 0.05f, 0.015f, 0.15f, 0.20f, metalDark, metalDark, metalMid, metalDark, metalMid, metalDark);
-    // Hands
-    BOX3D(gunVerts, gv, -0.04f, -0.14f, 0.05f, 0.04f, -0.02f, 0.18f, skinMid, skinDark, skinLight, skinMid, skinLight, skinShadow);
-    BOX3D(gunVerts, gv, -0.04f, -0.14f, -0.12f, 0.04f, -0.02f, 0.0f, skinMid, skinDark, skinLight, skinMid, skinLight, skinShadow);
-    BOX3D(gunVerts, gv, -0.05f, -0.18f, -0.35f, 0.05f, -0.02f, -0.10f, sleeveMid, sleeveDark, sleeveLight, sleeveMid, sleeveLight, sleeveDark);
-    BOX3D(gunVerts, gv, -0.06f, -0.24f, -0.55f, 0.06f, -0.04f, -0.35f, sleeveMid, sleeveDark, sleeveLight, sleeveMid, sleeveLight, sleeveDark);
-    BOX3D(gunVerts, gv, -0.08f, -0.38f, -0.85f, 0.08f, -0.08f, -0.55f, sleeveMid, sleeveDark, sleeveLight, sleeveMid, sleeveLight, sleeveDark);
+    // === MAIN LAUNCH TUBE (12-sided polygon) ===
+    float tx = 0.0f, ty = 0.04f;
+    float tr = 0.055f;  // tube radius
+    for (int i = 0; i < 12; i++) {
+        float a1 = i * M_PI / 6.0f;
+        float a2 = (i + 1) * M_PI / 6.0f;
+        float x1 = tx + tr * cosf(a1), y1 = ty + tr * sinf(a1);
+        float x2 = tx + tr * cosf(a2), y2 = ty + tr * sinf(a2);
+        simd_float3 col = (i % 3 == 0) ? tubeDark : ((i % 3 == 1) ? tubeOlive : tubeLight);
+        gunVerts[gv++] = (Vertex){{x1, y1, -0.12f}, col};
+        gunVerts[gv++] = (Vertex){{x2, y2, -0.12f}, col};
+        gunVerts[gv++] = (Vertex){{x2, y2, 0.42f}, col};
+        gunVerts[gv++] = (Vertex){{x1, y1, -0.12f}, col};
+        gunVerts[gv++] = (Vertex){{x2, y2, 0.42f}, col};
+        gunVerts[gv++] = (Vertex){{x1, y1, 0.42f}, col};
+    }
+
+    // Reinforcement bands around tube
+    for (int b = 0; b < 4; b++) {
+        float z = -0.08f + b * 0.13f;
+        for (int i = 0; i < 12; i++) {
+            float a1 = i * M_PI / 6.0f;
+            float a2 = (i + 1) * M_PI / 6.0f;
+            float x1 = tx + (tr+0.005f) * cosf(a1), y1 = ty + (tr+0.005f) * sinf(a1);
+            float x2 = tx + (tr+0.005f) * cosf(a2), y2 = ty + (tr+0.005f) * sinf(a2);
+            gunVerts[gv++] = (Vertex){{x1, y1, z}, tubeBand};
+            gunVerts[gv++] = (Vertex){{x2, y2, z}, tubeBand};
+            gunVerts[gv++] = (Vertex){{x2, y2, z+0.02f}, tubeBand};
+            gunVerts[gv++] = (Vertex){{x1, y1, z}, tubeBand};
+            gunVerts[gv++] = (Vertex){{x2, y2, z+0.02f}, tubeBand};
+            gunVerts[gv++] = (Vertex){{x1, y1, z+0.02f}, tubeBand};
+        }
+    }
+
+    // === FRONT MUZZLE / BLAST CONE ===
+    // Flared front opening
+    for (int i = 0; i < 12; i++) {
+        float a1 = i * M_PI / 6.0f;
+        float a2 = (i + 1) * M_PI / 6.0f;
+        float r1 = tr, r2 = tr + 0.015f;
+        float x1a = tx + r1 * cosf(a1), y1a = ty + r1 * sinf(a1);
+        float x2a = tx + r1 * cosf(a2), y2a = ty + r1 * sinf(a2);
+        float x1b = tx + r2 * cosf(a1), y1b = ty + r2 * sinf(a1);
+        float x2b = tx + r2 * cosf(a2), y2b = ty + r2 * sinf(a2);
+        simd_float3 col = (i % 2 == 0) ? metalDark : metalMid;
+        gunVerts[gv++] = (Vertex){{x1a, y1a, 0.42f}, col};
+        gunVerts[gv++] = (Vertex){{x2a, y2a, 0.42f}, col};
+        gunVerts[gv++] = (Vertex){{x2b, y2b, 0.48f}, col};
+        gunVerts[gv++] = (Vertex){{x1a, y1a, 0.42f}, col};
+        gunVerts[gv++] = (Vertex){{x2b, y2b, 0.48f}, col};
+        gunVerts[gv++] = (Vertex){{x1b, y1b, 0.48f}, col};
+    }
+    // Muzzle rim
+    BOX3D(gunVerts, gv, -0.075f, -0.035f, 0.48f, 0.075f, 0.115f, 0.50f, metalDark, metalBlack, metalMid, metalDark, metalMid, metalBlack);
+
+    // === REAR EXHAUST / VENTURI ===
+    // Rear flare
+    for (int i = 0; i < 12; i++) {
+        float a1 = i * M_PI / 6.0f;
+        float a2 = (i + 1) * M_PI / 6.0f;
+        float r1 = tr, r2 = tr + 0.012f;
+        float x1a = tx + r1 * cosf(a1), y1a = ty + r1 * sinf(a1);
+        float x2a = tx + r1 * cosf(a2), y2a = ty + r1 * sinf(a2);
+        float x1b = tx + r2 * cosf(a1), y1b = ty + r2 * sinf(a1);
+        float x2b = tx + r2 * cosf(a2), y2b = ty + r2 * sinf(a2);
+        simd_float3 col = (i % 2 == 0) ? metalDark : metalMid;
+        gunVerts[gv++] = (Vertex){{x1b, y1b, -0.18f}, col};
+        gunVerts[gv++] = (Vertex){{x2b, y2b, -0.18f}, col};
+        gunVerts[gv++] = (Vertex){{x2a, y2a, -0.12f}, col};
+        gunVerts[gv++] = (Vertex){{x1b, y1b, -0.18f}, col};
+        gunVerts[gv++] = (Vertex){{x2a, y2a, -0.12f}, col};
+        gunVerts[gv++] = (Vertex){{x1a, y1a, -0.12f}, col};
+    }
+
+    // Warning stripes on rear
+    for (int s = 0; s < 4; s++) {
+        float a = s * M_PI / 2.0f + M_PI / 4.0f;
+        float x = tx + (tr+0.008f) * cosf(a);
+        float y = ty + (tr+0.008f) * sinf(a);
+        BOX3D(gunVerts, gv, x-0.015f, y-0.015f, -0.17f, x+0.015f, y+0.015f, -0.14f,
+              (s%2==0) ? warningYellow : warningBlack, (s%2==0) ? warningYellow : warningBlack,
+              (s%2==0) ? warningYellow : warningBlack, (s%2==0) ? warningYellow : warningBlack,
+              (s%2==0) ? warningYellow : warningBlack, (s%2==0) ? warningYellow : warningBlack);
+    }
+
+    // === OPTICAL SIGHT ===
+    // Sight mounting bracket
+    BOX3D(gunVerts, gv, -0.025f, 0.095f, 0.02f, 0.025f, 0.115f, 0.18f, metalDark, metalBlack, metalMid, metalDark, metalMid, metalBlack);
+    // Sight body (octagonal tube)
+    float sx = 0.0f, sy = 0.14f, sr = 0.022f;
+    for (int i = 0; i < 8; i++) {
+        float a1 = i * M_PI / 4.0f;
+        float a2 = (i + 1) * M_PI / 4.0f;
+        float x1 = sx + sr * cosf(a1), y1 = sy + sr * sinf(a1);
+        float x2 = sx + sr * cosf(a2), y2 = sy + sr * sinf(a2);
+        simd_float3 col = (i % 2 == 0) ? metalDark : metalBlack;
+        gunVerts[gv++] = (Vertex){{x1, y1, 0.04f}, col};
+        gunVerts[gv++] = (Vertex){{x2, y2, 0.04f}, col};
+        gunVerts[gv++] = (Vertex){{x2, y2, 0.22f}, col};
+        gunVerts[gv++] = (Vertex){{x1, y1, 0.04f}, col};
+        gunVerts[gv++] = (Vertex){{x2, y2, 0.22f}, col};
+        gunVerts[gv++] = (Vertex){{x1, y1, 0.22f}, col};
+    }
+    // Sight lens
+    BOX3D(gunVerts, gv, -0.018f, 0.122f, 0.22f, 0.018f, 0.158f, 0.225f, metalLight, metalMid, metalLight, metalLight, metalLight, metalMid);
+    // Eyepiece
+    BOX3D(gunVerts, gv, -0.020f, 0.12f, 0.02f, 0.020f, 0.16f, 0.04f, metalDark, metalBlack, metalDark, metalDark, metalMid, metalBlack);
+    // Rangefinder markings
+    BOX3D(gunVerts, gv, -0.012f, 0.162f, 0.10f, 0.012f, 0.168f, 0.18f, metalLight, metalMid, metalLight, metalLight, metalLight, metalMid);
+
+    // === FRONT GRIP (wooden) ===
+    BOX3D(gunVerts, gv, -0.028f, -0.08f, 0.18f, 0.028f, -0.005f, 0.32f, woodMid, woodDark, woodLight, woodMid, woodLight, woodDark);
+    // Grip texture
+    for (int i = 0; i < 5; i++) {
+        float z = 0.20f + i * 0.022f;
+        BOX3D(gunVerts, gv, -0.030f, -0.075f, z, 0.030f, -0.070f, z+0.012f, woodDark, woodDark, woodDark, woodDark, woodDark, woodDark);
+    }
+    // Grip end cap
+    BOX3D(gunVerts, gv, -0.030f, -0.085f, 0.18f, 0.030f, -0.08f, 0.32f, metalDark, metalBlack, metalDark, metalDark, metalDark, metalBlack);
+
+    // === REAR GRIP / TRIGGER ASSEMBLY ===
+    // Pistol grip
+    BOX3D(gunVerts, gv, -0.024f, -0.12f, -0.02f, 0.024f, -0.005f, 0.08f, woodMid, woodDark, woodLight, woodMid, woodLight, woodDark);
+    // Grip texture
+    for (int i = 0; i < 4; i++) {
+        float y = -0.11f + i * 0.022f;
+        BOX3D(gunVerts, gv, -0.026f, y, -0.015f, 0.026f, y+0.008f, 0.075f, woodDark, woodDark, woodDark, woodDark, woodDark, woodDark);
+    }
+    // Trigger guard
+    BOX3D(gunVerts, gv, -0.020f, -0.06f, 0.0f, 0.020f, -0.05f, 0.06f, metalDark, metalBlack, metalDark, metalDark, metalDark, metalBlack);
+    BOX3D(gunVerts, gv, -0.020f, -0.075f, 0.0f, -0.016f, -0.05f, 0.06f, metalDark, metalBlack, metalDark, metalDark, metalDark, metalBlack);
+    BOX3D(gunVerts, gv, 0.016f, -0.075f, 0.0f, 0.020f, -0.05f, 0.06f, metalDark, metalBlack, metalDark, metalDark, metalDark, metalBlack);
+    BOX3D(gunVerts, gv, -0.020f, -0.075f, 0.0f, 0.020f, -0.070f, 0.005f, metalDark, metalBlack, metalDark, metalDark, metalDark, metalBlack);
+    // Trigger
+    BOX3D(gunVerts, gv, -0.005f, -0.065f, 0.035f, 0.005f, -0.05f, 0.045f, metalMid, metalDark, metalLight, metalMid, metalLight, metalDark);
+    // Trigger mechanism housing
+    BOX3D(gunVerts, gv, -0.030f, -0.02f, -0.02f, 0.030f, 0.02f, 0.10f, metalMid, metalDark, metalLight, metalMid, metalLight, metalDark);
+
+    // === SHOULDER REST ===
+    BOX3D(gunVerts, gv, -0.035f, -0.04f, -0.35f, 0.035f, 0.08f, -0.12f, tubeOlive, tubeDark, tubeLight, tubeOlive, tubeLight, tubeDark);
+    // Shoulder pad
+    BOX3D(gunVerts, gv, -0.042f, -0.05f, -0.38f, 0.042f, 0.085f, -0.35f, metalDark, metalBlack, metalDark, metalDark, metalDark, metalBlack);
+    // Cheek rest
+    BOX3D(gunVerts, gv, -0.028f, 0.08f, -0.30f, 0.028f, 0.10f, -0.15f, tubeOlive, tubeDark, tubeLight, tubeOlive, tubeLight, tubeDark);
+
+    // === LOADED ROCKET (visible in tube) ===
+    // Rocket warhead tip (cone approximation)
+    BOX3D(gunVerts, gv, -0.008f, 0.032f, 0.45f, 0.008f, 0.048f, 0.52f, rocketTip, rocketTip, rocketTip, rocketTip, rocketTip, rocketTip);
+    BOX3D(gunVerts, gv, -0.015f, 0.025f, 0.40f, 0.015f, 0.055f, 0.45f, rocketTip, rocketTip, rocketTip, rocketTip, rocketTip, rocketTip);
+    // Rocket body
+    BOX3D(gunVerts, gv, -0.025f, 0.015f, 0.10f, 0.025f, 0.065f, 0.40f, rocketBody, rocketBody, rocketBody, rocketBody, rocketBody, rocketBody);
+    // Rocket fins (4)
+    for (int f = 0; f < 4; f++) {
+        float a = f * M_PI / 2.0f;
+        float fx = 0.035f * cosf(a);
+        float fy = 0.04f + 0.035f * sinf(a);
+        BOX3D(gunVerts, gv, fx-0.003f, fy-0.003f, 0.12f, fx+0.003f, fy+0.003f, 0.20f, metalDark, metalDark, metalMid, metalMid, metalMid, metalDark);
+    }
+
+    // === HANDS ===
+    // Front hand on front grip
+    BOX3D(gunVerts, gv, -0.035f, -0.10f, 0.20f, 0.035f, -0.04f, 0.30f, skinMid, skinDark, skinLight, skinMid, skinLight, skinShadow);
+    // Front fingers
+    for (int f = 0; f < 4; f++) {
+        float x = -0.025f + f * 0.015f;
+        BOX3D(gunVerts, gv, x, -0.11f, 0.22f, x+0.012f, -0.085f, 0.28f, skinMid, skinShadow, skinLight, skinMid, skinLight, skinDark);
+    }
+    // Front thumb
+    BOX3D(gunVerts, gv, 0.035f, -0.06f, 0.22f, 0.052f, -0.035f, 0.28f, skinMid, skinDark, skinLight, skinMid, skinLight, skinDark);
+
+    // Rear hand on pistol grip
+    BOX3D(gunVerts, gv, -0.032f, -0.14f, -0.02f, 0.032f, -0.06f, 0.08f, skinMid, skinDark, skinLight, skinMid, skinLight, skinShadow);
+    // Index finger on trigger
+    BOX3D(gunVerts, gv, -0.006f, -0.07f, 0.03f, 0.006f, -0.05f, 0.045f, skinMid, skinShadow, skinLight, skinMid, skinLight, skinDark);
+    // Other fingers
+    for (int f = 0; f < 3; f++) {
+        float y = -0.10f - f * 0.014f;
+        BOX3D(gunVerts, gv, -0.035f, y-0.012f, -0.01f, -0.022f, y, 0.07f, skinMid, skinDark, skinLight, skinMid, skinLight, skinDark);
+    }
+    // Rear thumb
+    BOX3D(gunVerts, gv, 0.032f, -0.08f, 0.0f, 0.050f, -0.055f, 0.06f, skinMid, skinDark, skinLight, skinMid, skinLight, skinDark);
+
+    // === ARMS ===
+    // Front wrist
+    BOX3D(gunVerts, gv, -0.040f, -0.13f, 0.08f, 0.040f, -0.04f, 0.22f, skinMid, skinDark, skinLight, skinMid, skinLight, skinShadow);
+    // Front forearm
+    BOX3D(gunVerts, gv, -0.045f, -0.16f, -0.05f, 0.045f, -0.05f, 0.10f, sleeveMid, sleeveDark, sleeveLight, sleeveMid, sleeveLight, sleeveDark);
+    BOX3D(gunVerts, gv, -0.047f, -0.15f, 0.08f, 0.047f, -0.06f, 0.10f, cuffCol, cuffCol, cuffCol, cuffCol, cuffCol, cuffCol);
+
+    // Rear wrist
+    BOX3D(gunVerts, gv, -0.038f, -0.16f, -0.15f, 0.038f, -0.06f, -0.02f, skinMid, skinDark, skinLight, skinMid, skinLight, skinShadow);
+    // Rear forearm
+    BOX3D(gunVerts, gv, -0.045f, -0.19f, -0.30f, 0.045f, -0.06f, -0.15f, sleeveMid, sleeveDark, sleeveLight, sleeveMid, sleeveLight, sleeveDark);
+    BOX3D(gunVerts, gv, -0.047f, -0.18f, -0.17f, 0.047f, -0.07f, -0.15f, cuffCol, cuffCol, cuffCol, cuffCol, cuffCol, cuffCol);
+
+    // Upper arms
+    BOX3D(gunVerts, gv, -0.055f, -0.25f, -0.50f, 0.055f, -0.06f, -0.30f, sleeveMid, sleeveDark, sleeveLight, sleeveMid, sleeveLight, sleeveDark);
+    BOX3D(gunVerts, gv, -0.065f, -0.32f, -0.75f, 0.065f, -0.08f, -0.50f, sleeveMid, sleeveDark, sleeveLight, sleeveMid, sleeveLight, sleeveDark);
+    BOX3D(gunVerts, gv, -0.075f, -0.40f, -0.95f, 0.075f, -0.10f, -0.75f, sleeveMid, sleeveDark, sleeveLight, sleeveMid, sleeveLight, sleeveDark);
 
     *count = gv;
     return [device newBufferWithBytes:gunVerts length:sizeof(Vertex) * gv options:MTLResourceStorageModeShared];
 }
 
 + (id<MTLBuffer>)createEnemyBufferWithDevice:(id<MTLDevice>)device vertexCount:(NSUInteger *)count {
-    #define MAX_ENEMY_VERTS 600
+    #define MAX_ENEMY_VERTS 4000
     Vertex enemyVerts[MAX_ENEMY_VERTS];
     int ev = 0;
 
-    simd_float3 bodyDark = {0.5f, 0.1f, 0.1f};
-    simd_float3 bodyMid = {0.7f, 0.15f, 0.15f};
-    simd_float3 bodyLight = {0.8f, 0.2f, 0.2f};
-    simd_float3 skinTone = {0.45f, 0.3f, 0.2f};   // Brown skin
-    simd_float3 skinDark = {0.35f, 0.22f, 0.15f}; // Darker brown
-    simd_float3 gunC1 = {0.2f, 0.2f, 0.2f};
-    simd_float3 gunC2 = {0.1f, 0.1f, 0.1f};
-    simd_float3 gunC3 = {0.25f, 0.25f, 0.25f};
+    // Colors - enemy in red/dark tactical gear
+    simd_float3 vestDark = {0.45f, 0.08f, 0.08f};
+    simd_float3 vestMid = {0.60f, 0.12f, 0.12f};
+    simd_float3 vestLight = {0.72f, 0.18f, 0.18f};
+    simd_float3 pantsDark = {0.18f, 0.15f, 0.14f};
+    simd_float3 pantsMid = {0.28f, 0.24f, 0.22f};
+    simd_float3 pantsLight = {0.35f, 0.30f, 0.28f};
+    simd_float3 bootDark = {0.12f, 0.10f, 0.08f};
+    simd_float3 bootMid = {0.20f, 0.16f, 0.12f};
+    simd_float3 skinTone = {0.50f, 0.35f, 0.25f};
+    simd_float3 skinDark = {0.40f, 0.28f, 0.20f};
+    simd_float3 skinLight = {0.58f, 0.42f, 0.32f};
+    simd_float3 helmetDark = {0.20f, 0.22f, 0.18f};
+    simd_float3 helmetMid = {0.30f, 0.32f, 0.28f};
+    simd_float3 helmetLight = {0.38f, 0.40f, 0.36f};
+    simd_float3 beltCol = {0.15f, 0.12f, 0.10f};
+    simd_float3 pouchCol = {0.25f, 0.20f, 0.15f};
+    simd_float3 gunDark = {0.12f, 0.12f, 0.14f};
+    simd_float3 gunMid = {0.22f, 0.22f, 0.25f};
+    simd_float3 gunLight = {0.30f, 0.30f, 0.33f};
+    simd_float3 strapCol = {0.20f, 0.18f, 0.15f};
 
-    BOX3D(enemyVerts, ev, -0.15f, 0.5f, -0.1f, 0.15f, 0.8f, 0.1f, skinTone, skinDark, skinTone, skinTone, skinTone, skinDark);
-    BOX3D(enemyVerts, ev, -0.2f, 0.0f, -0.12f, 0.2f, 0.5f, 0.12f, bodyMid, bodyDark, bodyLight, bodyMid, bodyLight, bodyDark);
-    BOX3D(enemyVerts, ev, -0.35f, 0.1f, -0.08f, -0.2f, 0.45f, 0.08f, bodyMid, bodyDark, bodyLight, bodyMid, bodyLight, bodyDark);
-    BOX3D(enemyVerts, ev, 0.2f, 0.1f, -0.08f, 0.35f, 0.45f, 0.08f, bodyMid, bodyDark, bodyLight, bodyMid, bodyLight, bodyDark);
-    BOX3D(enemyVerts, ev, -0.18f, -0.6f, -0.1f, -0.02f, 0.0f, 0.1f, bodyDark, bodyDark, bodyMid, bodyMid, bodyMid, bodyDark);
-    BOX3D(enemyVerts, ev, 0.02f, -0.6f, -0.1f, 0.18f, 0.0f, 0.1f, bodyDark, bodyDark, bodyMid, bodyMid, bodyMid, bodyDark);
-    BOX3D(enemyVerts, ev, 0.3f, 0.25f, -0.04f, 0.6f, 0.32f, 0.04f, gunC1, gunC2, gunC3, gunC2, gunC1, gunC2);
+    // === HEAD WITH HELMET ===
+    // Helmet - main dome
+    BOX3D(enemyVerts, ev, -0.12f, 0.62f, -0.10f, 0.12f, 0.82f, 0.10f, helmetMid, helmetDark, helmetLight, helmetMid, helmetLight, helmetDark);
+    // Helmet brim
+    BOX3D(enemyVerts, ev, -0.13f, 0.60f, -0.12f, 0.13f, 0.64f, 0.12f, helmetDark, helmetDark, helmetMid, helmetMid, helmetDark, helmetDark);
+    // Helmet rim detail
+    BOX3D(enemyVerts, ev, -0.125f, 0.78f, -0.11f, 0.125f, 0.82f, 0.11f, helmetDark, helmetDark, helmetDark, helmetDark, helmetMid, helmetDark);
+    // Helmet strap
+    BOX3D(enemyVerts, ev, -0.11f, 0.55f, 0.06f, -0.08f, 0.65f, 0.08f, strapCol, strapCol, strapCol, strapCol, strapCol, strapCol);
+    BOX3D(enemyVerts, ev, 0.08f, 0.55f, 0.06f, 0.11f, 0.65f, 0.08f, strapCol, strapCol, strapCol, strapCol, strapCol, strapCol);
+    // Face
+    BOX3D(enemyVerts, ev, -0.09f, 0.52f, 0.06f, 0.09f, 0.62f, 0.11f, skinTone, skinDark, skinLight, skinTone, skinLight, skinDark);
+    // Eyes area (darker)
+    BOX3D(enemyVerts, ev, -0.07f, 0.56f, 0.10f, 0.07f, 0.60f, 0.115f, skinDark, skinDark, skinDark, skinDark, skinDark, skinDark);
+    // Nose
+    BOX3D(enemyVerts, ev, -0.015f, 0.52f, 0.10f, 0.015f, 0.58f, 0.13f, skinTone, skinTone, skinLight, skinTone, skinTone, skinTone);
+    // Chin/jaw
+    BOX3D(enemyVerts, ev, -0.07f, 0.48f, 0.04f, 0.07f, 0.54f, 0.10f, skinTone, skinDark, skinLight, skinTone, skinLight, skinDark);
+
+    // Neck
+    BOX3D(enemyVerts, ev, -0.06f, 0.42f, -0.04f, 0.06f, 0.52f, 0.06f, skinTone, skinDark, skinLight, skinTone, skinLight, skinDark);
+
+    // === TORSO WITH TACTICAL VEST ===
+    // Main chest
+    BOX3D(enemyVerts, ev, -0.16f, 0.15f, -0.10f, 0.16f, 0.45f, 0.10f, vestMid, vestDark, vestLight, vestMid, vestLight, vestDark);
+    // Vest front plate
+    BOX3D(enemyVerts, ev, -0.13f, 0.18f, 0.09f, 0.13f, 0.42f, 0.12f, vestDark, vestDark, vestMid, vestMid, vestMid, vestDark);
+    // Vest back plate
+    BOX3D(enemyVerts, ev, -0.13f, 0.18f, -0.12f, 0.13f, 0.42f, -0.09f, vestDark, vestMid, vestDark, vestDark, vestMid, vestDark);
+    // Shoulder pads
+    BOX3D(enemyVerts, ev, -0.20f, 0.38f, -0.08f, -0.14f, 0.46f, 0.08f, vestMid, vestDark, vestLight, vestMid, vestLight, vestDark);
+    BOX3D(enemyVerts, ev, 0.14f, 0.38f, -0.08f, 0.20f, 0.46f, 0.08f, vestMid, vestDark, vestLight, vestMid, vestLight, vestDark);
+    // Collar
+    BOX3D(enemyVerts, ev, -0.10f, 0.42f, -0.06f, 0.10f, 0.48f, 0.06f, vestDark, vestDark, vestMid, vestMid, vestMid, vestDark);
+
+    // Magazine pouches on vest
+    BOX3D(enemyVerts, ev, -0.14f, 0.20f, 0.10f, -0.08f, 0.32f, 0.14f, pouchCol, pouchCol, pouchCol, pouchCol, pouchCol, pouchCol);
+    BOX3D(enemyVerts, ev, -0.06f, 0.20f, 0.10f, 0.0f, 0.32f, 0.14f, pouchCol, pouchCol, pouchCol, pouchCol, pouchCol, pouchCol);
+    BOX3D(enemyVerts, ev, 0.02f, 0.20f, 0.10f, 0.08f, 0.32f, 0.14f, pouchCol, pouchCol, pouchCol, pouchCol, pouchCol, pouchCol);
+
+    // Belt
+    BOX3D(enemyVerts, ev, -0.17f, 0.10f, -0.11f, 0.17f, 0.16f, 0.11f, beltCol, beltCol, beltCol, beltCol, beltCol, beltCol);
+    // Belt buckle
+    BOX3D(enemyVerts, ev, -0.03f, 0.11f, 0.10f, 0.03f, 0.15f, 0.12f, gunMid, gunMid, gunLight, gunMid, gunLight, gunMid);
+    // Holster on belt (right side)
+    BOX3D(enemyVerts, ev, 0.14f, 0.02f, 0.04f, 0.20f, 0.14f, 0.10f, beltCol, beltCol, beltCol, beltCol, beltCol, beltCol);
+
+    // === ARMS - Segmented ===
+    // Left upper arm
+    BOX3D(enemyVerts, ev, -0.28f, 0.22f, -0.07f, -0.16f, 0.40f, 0.07f, vestMid, vestDark, vestLight, vestMid, vestLight, vestDark);
+    // Left elbow
+    BOX3D(enemyVerts, ev, -0.30f, 0.18f, -0.06f, -0.18f, 0.24f, 0.06f, vestDark, vestDark, vestMid, vestMid, vestMid, vestDark);
+    // Left forearm
+    BOX3D(enemyVerts, ev, -0.32f, 0.08f, -0.055f, -0.20f, 0.20f, 0.055f, vestMid, vestDark, vestLight, vestMid, vestLight, vestDark);
+    // Left hand
+    BOX3D(enemyVerts, ev, -0.33f, 0.04f, -0.04f, -0.22f, 0.10f, 0.04f, skinTone, skinDark, skinLight, skinTone, skinLight, skinDark);
+
+    // Right upper arm (holding gun forward)
+    BOX3D(enemyVerts, ev, 0.16f, 0.22f, -0.07f, 0.28f, 0.40f, 0.07f, vestMid, vestDark, vestLight, vestMid, vestLight, vestDark);
+    // Right elbow
+    BOX3D(enemyVerts, ev, 0.24f, 0.18f, -0.06f, 0.34f, 0.28f, 0.06f, vestDark, vestDark, vestMid, vestMid, vestMid, vestDark);
+    // Right forearm (extended forward)
+    BOX3D(enemyVerts, ev, 0.28f, 0.20f, 0.02f, 0.38f, 0.30f, 0.20f, vestMid, vestDark, vestLight, vestMid, vestLight, vestDark);
+    // Right hand (holding gun)
+    BOX3D(enemyVerts, ev, 0.32f, 0.22f, 0.18f, 0.42f, 0.30f, 0.28f, skinTone, skinDark, skinLight, skinTone, skinLight, skinDark);
+
+    // === LEGS - Segmented ===
+    // Left thigh
+    BOX3D(enemyVerts, ev, -0.14f, -0.20f, -0.08f, -0.02f, 0.12f, 0.08f, pantsMid, pantsDark, pantsLight, pantsMid, pantsLight, pantsDark);
+    // Left knee
+    BOX3D(enemyVerts, ev, -0.13f, -0.26f, -0.075f, -0.03f, -0.18f, 0.075f, pantsDark, pantsDark, pantsMid, pantsMid, pantsMid, pantsDark);
+    // Left shin
+    BOX3D(enemyVerts, ev, -0.12f, -0.48f, -0.07f, -0.04f, -0.24f, 0.07f, pantsMid, pantsDark, pantsLight, pantsMid, pantsLight, pantsDark);
+    // Left boot
+    BOX3D(enemyVerts, ev, -0.13f, -0.58f, -0.08f, -0.03f, -0.46f, 0.08f, bootMid, bootDark, bootMid, bootMid, bootMid, bootDark);
+    BOX3D(enemyVerts, ev, -0.14f, -0.60f, -0.04f, -0.02f, -0.56f, 0.12f, bootDark, bootDark, bootMid, bootMid, bootDark, bootDark);
+
+    // Right thigh
+    BOX3D(enemyVerts, ev, 0.02f, -0.20f, -0.08f, 0.14f, 0.12f, 0.08f, pantsMid, pantsDark, pantsLight, pantsMid, pantsLight, pantsDark);
+    // Right knee
+    BOX3D(enemyVerts, ev, 0.03f, -0.26f, -0.075f, 0.13f, -0.18f, 0.075f, pantsDark, pantsDark, pantsMid, pantsMid, pantsMid, pantsDark);
+    // Right shin
+    BOX3D(enemyVerts, ev, 0.04f, -0.48f, -0.07f, 0.12f, -0.24f, 0.07f, pantsMid, pantsDark, pantsLight, pantsMid, pantsLight, pantsDark);
+    // Right boot
+    BOX3D(enemyVerts, ev, 0.03f, -0.58f, -0.08f, 0.13f, -0.46f, 0.08f, bootMid, bootDark, bootMid, bootMid, bootMid, bootDark);
+    BOX3D(enemyVerts, ev, 0.02f, -0.60f, -0.04f, 0.14f, -0.56f, 0.12f, bootDark, bootDark, bootMid, bootMid, bootDark, bootDark);
+
+    // === GUN (held in right hand) ===
+    // Gun body
+    BOX3D(enemyVerts, ev, 0.35f, 0.24f, 0.26f, 0.42f, 0.30f, 0.55f, gunMid, gunDark, gunLight, gunMid, gunLight, gunDark);
+    // Gun barrel
+    BOX3D(enemyVerts, ev, 0.37f, 0.25f, 0.55f, 0.40f, 0.29f, 0.70f, gunDark, gunDark, gunDark, gunDark, gunDark, gunDark);
+    // Gun stock
+    BOX3D(enemyVerts, ev, 0.36f, 0.22f, 0.10f, 0.41f, 0.28f, 0.28f, gunMid, gunDark, gunMid, gunMid, gunLight, gunDark);
+    // Gun magazine
+    BOX3D(enemyVerts, ev, 0.37f, 0.18f, 0.32f, 0.40f, 0.25f, 0.42f, gunDark, gunDark, gunMid, gunMid, gunDark, gunDark);
+    // Gun sight
+    BOX3D(enemyVerts, ev, 0.38f, 0.30f, 0.45f, 0.39f, 0.33f, 0.50f, gunDark, gunDark, gunDark, gunDark, gunLight, gunDark);
+
+    // Gun strap (slung across body)
+    BOX3D(enemyVerts, ev, 0.10f, 0.15f, 0.08f, 0.14f, 0.42f, 0.10f, strapCol, strapCol, strapCol, strapCol, strapCol, strapCol);
+    BOX3D(enemyVerts, ev, -0.14f, 0.25f, -0.10f, -0.10f, 0.42f, -0.08f, strapCol, strapCol, strapCol, strapCol, strapCol, strapCol);
 
     *count = ev;
     return [device newBufferWithBytes:enemyVerts length:sizeof(Vertex) * ev options:MTLResourceStorageModeShared];
@@ -1116,7 +1819,7 @@
 }
 
 + (id<MTLBuffer>)createBoxGridBufferWithDevice:(id<MTLDevice>)device vertexCount:(NSUInteger *)count {
-    float h = ARENA_SIZE + 5.0f;
+    float h = ARENA_SIZE;  // Match collision boundary
     int gridDiv = 20;
     simd_float3 col = {0.3, 0.3, 0.3};
     int maxVerts = 6 * 2 * (gridDiv + 1) * 2;

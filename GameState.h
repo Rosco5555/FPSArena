@@ -39,6 +39,9 @@ typedef struct {
 @property (nonatomic) int footstepTimer;
 @property (nonatomic) int spawnProtectionTimer;  // Counts down in frames, player invulnerable when > 0
 
+// Kill counter (single-player)
+@property (nonatomic) int killCount;
+
 // Weapon ownership flags (for pickups)
 @property (nonatomic) BOOL hasWeaponShotgun;
 @property (nonatomic) BOOL hasWeaponAssaultRifle;

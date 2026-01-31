@@ -133,6 +133,7 @@
     _regenTickTimer = 0;
     _footstepTimer = 0;
     _spawnProtectionTimer = SPAWN_PROTECTION_TIME;  // 3 seconds of spawn protection
+    _killCount = 0;
 
     // Weapon ownership (start with pistol only)
     _hasWeaponShotgun = NO;

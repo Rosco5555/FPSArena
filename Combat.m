@@ -3,6 +3,7 @@
 #import "GameState.h"
 #import "GameMath.h"
 #import "Collision.h"
+#import "CollisionWorld.h"
 #import "DoorSystem.h"
 #import "SoundManager.h"
 #import "WeaponSystem.h"
@@ -10,208 +11,28 @@
 #import <math.h>
 
 // Helper function to check ray against environment (walls, doors, etc.)
-// Returns the closest hit distance
+// Returns the closest hit distance - uses CollisionWorld for consistency
 static float checkEnvironmentHit(simd_float3 muzzle, simd_float3 dir, float maxRange) {
-    float maxDist = maxRange;
+    // Use CollisionWorld's raycast for consistent hit detection
+    CollisionWorld *collisionWorld = [CollisionWorld shared];
+    RaycastResult result = [collisionWorld raycastFrom:muzzle
+                                             direction:dir
+                                           maxDistance:maxRange
+                                             layerMask:CollisionLayerWorld];
 
-    // Check hit against house walls
-    {
-        float hw = HOUSE_WIDTH / 2.0f;
-        float hd = HOUSE_DEPTH / 2.0f;
-        float hx = HOUSE_X;
-        float hz = HOUSE_Z;
-        float fy = FLOOR_Y;
-        float wh = HOUSE_WALL_HEIGHT;
-        float wt = HOUSE_WALL_THICK;
-
-        simd_float3 backMin = {hx - hw - wt, fy, hz - hd - wt};
-        simd_float3 backMax = {hx + hw + wt, fy + wh, hz - hd};
-        RayHitResult backHit = rayIntersectAABB(muzzle, dir, backMin, backMax);
-        if (backHit.hit && backHit.t > 0 && backHit.t < maxDist) maxDist = backHit.t;
-
-        simd_float3 leftMin = {hx - hw - wt, fy, hz - hd};
-        simd_float3 leftMax = {hx - hw, fy + wh, hz + hd};
-        RayHitResult leftHit = rayIntersectAABB(muzzle, dir, leftMin, leftMax);
-        if (leftHit.hit && leftHit.t > 0 && leftHit.t < maxDist) maxDist = leftHit.t;
-
-        simd_float3 rightMin = {hx + hw, fy, hz - hd};
-        simd_float3 rightMax = {hx + hw + wt, fy + wh, hz + hd};
-        RayHitResult rightHit = rayIntersectAABB(muzzle, dir, rightMin, rightMax);
-        if (rightHit.hit && rightHit.t > 0 && rightHit.t < maxDist) maxDist = rightHit.t;
-
-        float dw = DOOR_WIDTH / 2.0f;
-
-        simd_float3 frontLeftMin = {hx - hw, fy, hz + hd};
-        simd_float3 frontLeftMax = {hx - dw, fy + wh, hz + hd + wt};
-        RayHitResult frontLeftHit = rayIntersectAABB(muzzle, dir, frontLeftMin, frontLeftMax);
-        if (frontLeftHit.hit && frontLeftHit.t > 0 && frontLeftHit.t < maxDist) maxDist = frontLeftHit.t;
-
-        simd_float3 frontRightMin = {hx + dw, fy, hz + hd};
-        simd_float3 frontRightMax = {hx + hw, fy + wh, hz + hd + wt};
-        RayHitResult frontRightHit = rayIntersectAABB(muzzle, dir, frontRightMin, frontRightMax);
-        if (frontRightHit.hit && frontRightHit.t > 0 && frontRightHit.t < maxDist) maxDist = frontRightHit.t;
-
-        simd_float3 aboveDoorMin = {hx - dw, fy + DOOR_HEIGHT, hz + hd};
-        simd_float3 aboveDoorMax = {hx + dw, fy + wh, hz + hd + wt};
-        RayHitResult aboveDoorHit = rayIntersectAABB(muzzle, dir, aboveDoorMin, aboveDoorMax);
-        if (aboveDoorHit.hit && aboveDoorHit.t > 0 && aboveDoorHit.t < maxDist) maxDist = aboveDoorHit.t;
-
-        simd_float3 doorMin, doorMax;
-        getDoorAABB(&doorMin, &doorMax);
-        RayHitResult doorHit = rayIntersectAABB(muzzle, dir, doorMin, doorMax);
-        if (doorHit.hit && doorHit.t > 0 && doorHit.t < maxDist) maxDist = doorHit.t;
+    if (result.hit) {
+        return result.distance;
     }
 
-    // Check hit against cover walls (legacy)
-    {
-        float hw = WALL_WIDTH / 2.0f;
-        float hh = WALL_HEIGHT / 2.0f;
-        float hd = WALL_DEPTH / 2.0f;
-        float w1y = FLOOR_Y + hh;
-        float w2y = FLOOR_Y + hh;
-
-        simd_float3 wall1Min = {WALL1_X - hw, w1y - hh, WALL1_Z - hd};
-        simd_float3 wall1Max = {WALL1_X + hw, w1y + hh, WALL1_Z + hd};
-        RayHitResult wall1Hit = rayIntersectAABB(muzzle, dir, wall1Min, wall1Max);
-        if (wall1Hit.hit && wall1Hit.t < maxDist) maxDist = wall1Hit.t;
-
-        simd_float3 wall2Min = {WALL2_X - hw, w2y - hh, WALL2_Z - hd};
-        simd_float3 wall2Max = {WALL2_X + hw, w2y + hh, WALL2_Z + hd};
-        RayHitResult wall2Hit = rayIntersectAABB(muzzle, dir, wall2Min, wall2Max);
-        if (wall2Hit.hit && wall2Hit.t < maxDist) maxDist = wall2Hit.t;
+    // Also check the door (dynamic object not in CollisionWorld)
+    simd_float3 doorMin, doorMax;
+    getDoorAABB(&doorMin, &doorMax);
+    RayHitResult doorHit = rayIntersectAABB(muzzle, dir, doorMin, doorMax);
+    if (doorHit.hit && doorHit.t > 0 && doorHit.t < maxRange) {
+        return doorHit.t;
     }
 
-    // Check hit against guard towers (4 corners)
-    {
-        float towerPositions[4][2] = {
-            {TOWER_OFFSET, TOWER_OFFSET},
-            {-TOWER_OFFSET, TOWER_OFFSET},
-            {-TOWER_OFFSET, -TOWER_OFFSET},
-            {TOWER_OFFSET, -TOWER_OFFSET}
-        };
-
-        for (int t = 0; t < 4; t++) {
-            float tx = towerPositions[t][0];
-            float tz = towerPositions[t][1];
-
-            // Tower platform
-            simd_float3 platMin = {tx - TOWER_SIZE/2, PLATFORM_LEVEL - CATWALK_THICK, tz - TOWER_SIZE/2};
-            simd_float3 platMax = {tx + TOWER_SIZE/2, PLATFORM_LEVEL, tz + TOWER_SIZE/2};
-            RayHitResult platHit = rayIntersectAABB(muzzle, dir, platMin, platMax);
-            if (platHit.hit && platHit.t > 0 && platHit.t < maxDist) maxDist = platHit.t;
-
-            // Tower support legs (4 per tower)
-            float legOffset = TOWER_SIZE/2 - 0.2f;
-            float legPositions[4][2] = {
-                {tx - legOffset, tz - legOffset},
-                {tx + legOffset, tz - legOffset},
-                {tx - legOffset, tz + legOffset},
-                {tx + legOffset, tz + legOffset}
-            };
-
-            for (int l = 0; l < 4; l++) {
-                simd_float3 legMin = {legPositions[l][0] - 0.15f, FLOOR_Y, legPositions[l][1] - 0.15f};
-                simd_float3 legMax = {legPositions[l][0] + 0.15f, PLATFORM_LEVEL, legPositions[l][1] + 0.15f};
-                RayHitResult legHit = rayIntersectAABB(muzzle, dir, legMin, legMax);
-                if (legHit.hit && legHit.t > 0 && legHit.t < maxDist) maxDist = legHit.t;
-            }
-        }
-    }
-
-    // Check hit against catwalks
-    {
-        // North catwalk
-        simd_float3 northMin = {-TOWER_OFFSET + TOWER_SIZE/2, PLATFORM_LEVEL - CATWALK_THICK, TOWER_OFFSET - CATWALK_WIDTH/2};
-        simd_float3 northMax = {TOWER_OFFSET - TOWER_SIZE/2, PLATFORM_LEVEL, TOWER_OFFSET + CATWALK_WIDTH/2};
-        RayHitResult northHit = rayIntersectAABB(muzzle, dir, northMin, northMax);
-        if (northHit.hit && northHit.t > 0 && northHit.t < maxDist) maxDist = northHit.t;
-
-        // South catwalk
-        simd_float3 southMin = {-TOWER_OFFSET + TOWER_SIZE/2, PLATFORM_LEVEL - CATWALK_THICK, -TOWER_OFFSET - CATWALK_WIDTH/2};
-        simd_float3 southMax = {TOWER_OFFSET - TOWER_SIZE/2, PLATFORM_LEVEL, -TOWER_OFFSET + CATWALK_WIDTH/2};
-        RayHitResult southHit = rayIntersectAABB(muzzle, dir, southMin, southMax);
-        if (southHit.hit && southHit.t > 0 && southHit.t < maxDist) maxDist = southHit.t;
-
-        // East catwalk
-        simd_float3 eastMin = {TOWER_OFFSET - CATWALK_WIDTH/2, PLATFORM_LEVEL - CATWALK_THICK, -TOWER_OFFSET + TOWER_SIZE/2};
-        simd_float3 eastMax = {TOWER_OFFSET + CATWALK_WIDTH/2, PLATFORM_LEVEL, TOWER_OFFSET - TOWER_SIZE/2};
-        RayHitResult eastHit = rayIntersectAABB(muzzle, dir, eastMin, eastMax);
-        if (eastHit.hit && eastHit.t > 0 && eastHit.t < maxDist) maxDist = eastHit.t;
-
-        // West catwalk
-        simd_float3 westMin = {-TOWER_OFFSET - CATWALK_WIDTH/2, PLATFORM_LEVEL - CATWALK_THICK, -TOWER_OFFSET + TOWER_SIZE/2};
-        simd_float3 westMax = {-TOWER_OFFSET + CATWALK_WIDTH/2, PLATFORM_LEVEL, TOWER_OFFSET - TOWER_SIZE/2};
-        RayHitResult westHit = rayIntersectAABB(muzzle, dir, westMin, westMax);
-        if (westHit.hit && westHit.t > 0 && westHit.t < maxDist) maxDist = westHit.t;
-    }
-
-    // Check hit against bunker
-    {
-        // Bunker entrance structure
-        simd_float3 entranceMin = {BUNKER_X - BUNKER_STAIR_WIDTH/2 - 0.3f, FLOOR_Y, BUNKER_Z + BUNKER_DEPTH/2 - 0.3f};
-        simd_float3 entranceMax = {BUNKER_X + BUNKER_STAIR_WIDTH/2 + 0.3f, FLOOR_Y + 1.0f, BUNKER_Z + BUNKER_DEPTH/2 + 2.0f};
-        RayHitResult entranceHit = rayIntersectAABB(muzzle, dir, entranceMin, entranceMax);
-        if (entranceHit.hit && entranceHit.t > 0 && entranceHit.t < maxDist) maxDist = entranceHit.t;
-
-        // Bunker main structure (underground walls)
-        simd_float3 bunkerMin = {BUNKER_X - BUNKER_WIDTH/2 - 0.3f, BASEMENT_LEVEL, BUNKER_Z - BUNKER_DEPTH/2 - 0.3f};
-        simd_float3 bunkerMax = {BUNKER_X + BUNKER_WIDTH/2 + 0.3f, FLOOR_Y, BUNKER_Z + BUNKER_DEPTH/2 + 0.3f};
-        RayHitResult bunkerHit = rayIntersectAABB(muzzle, dir, bunkerMin, bunkerMax);
-        if (bunkerHit.hit && bunkerHit.t > 0 && bunkerHit.t < maxDist) maxDist = bunkerHit.t;
-    }
-
-    // Check hit against cargo containers
-    {
-        float containerPositions[8][3] = {
-            {8.0f, FLOOR_Y, 5.0f},
-            {8.0f, FLOOR_Y, -5.0f},
-            {-8.0f, FLOOR_Y, 5.0f},
-            {-8.0f, FLOOR_Y, -5.0f},
-            {12.0f, FLOOR_Y, 0.0f},
-            {-12.0f, FLOOR_Y, 0.0f},
-            {0.0f, FLOOR_Y, -12.0f},
-            {8.0f, FLOOR_Y + CONTAINER_HEIGHT, 5.0f}  // Stacked container
-        };
-
-        for (int c = 0; c < 8; c++) {
-            float cx = containerPositions[c][0];
-            float cy = containerPositions[c][1];
-            float cz = containerPositions[c][2];
-
-            simd_float3 contMin = {cx - CONTAINER_LENGTH/2, cy, cz - CONTAINER_WIDTH/2};
-            simd_float3 contMax = {cx + CONTAINER_LENGTH/2, cy + CONTAINER_HEIGHT, cz + CONTAINER_WIDTH/2};
-            RayHitResult contHit = rayIntersectAABB(muzzle, dir, contMin, contMax);
-            if (contHit.hit && contHit.t > 0 && contHit.t < maxDist) maxDist = contHit.t;
-        }
-    }
-
-    // Check hit against sandbag walls
-    {
-        float sandbagPositions[10][2] = {
-            {5.0f, 10.0f},
-            {-5.0f, 10.0f},
-            {10.0f, 5.0f},
-            {-10.0f, 5.0f},
-            {10.0f, -5.0f},
-            {-10.0f, -5.0f},
-            {5.0f, -10.0f},
-            {-5.0f, -10.0f},
-            {3.0f, 6.0f},
-            {-3.0f, -6.0f}
-        };
-
-        for (int s = 0; s < 10; s++) {
-            float sx = sandbagPositions[s][0];
-            float sz = sandbagPositions[s][1];
-
-            simd_float3 sbMin = {sx - SANDBAG_LENGTH/2, FLOOR_Y, sz - SANDBAG_THICK/2};
-            simd_float3 sbMax = {sx + SANDBAG_LENGTH/2, FLOOR_Y + SANDBAG_HEIGHT, sz + SANDBAG_THICK/2};
-            RayHitResult sbHit = rayIntersectAABB(muzzle, dir, sbMin, sbMax);
-            if (sbHit.hit && sbHit.t > 0 && sbHit.t < maxDist) maxDist = sbHit.t;
-        }
-    }
-
-    return maxDist;
+    return maxRange;
 }
 
 // Check if a ray hits a player hitbox at the given position
@@ -283,6 +104,9 @@ CombatHitResult processProjectileHit(simd_float3 muzzle, simd_float3 dir, int da
                 if (enemyHealth[e] <= 0) {
                     enemyAlive[e] = NO;
                     state.enemyRespawnTimer[e] = ENEMY_RESPAWN_DELAY;
+                    if (!state.isMultiplayer) {
+                        state.killCount++;
+                    }
                 }
                 maxDist = eHit.t;
 
@@ -343,6 +167,9 @@ void applySplashDamage(simd_float3 hitPoint, float radius, int damage) {
                 if (enemyHealth[e] <= 0) {
                     enemyAlive[e] = NO;
                     state.enemyRespawnTimer[e] = ENEMY_RESPAWN_DELAY;
+                    if (!state.isMultiplayer) {
+                        state.killCount++;
+                    }
                 }
             }
         }

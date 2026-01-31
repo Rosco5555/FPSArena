@@ -336,6 +336,24 @@ static const WeaponStats WEAPON_STATS[WeaponTypeCount] = {
                 _weaponState.currentAmmo[_weaponState.currentWeapon] = stats.magSize;
             }
         }
+    } else {
+        // Auto-reload when magazine is empty and we have more ammo
+        WeaponStats stats = WEAPON_STATS[_weaponState.currentWeapon];
+        if (stats.magSize > 0) {  // Not unlimited ammo weapon
+            int currentMag = _weaponState.currentAmmo[_weaponState.currentWeapon];
+            if (currentMag == 0) {
+                // Check if we have ammo to reload
+                if (stats.maxReserve > 0) {
+                    // Weapons with reserve - check reserve ammo
+                    if (_weaponState.reserveAmmo[_weaponState.currentWeapon] > 0) {
+                        [self reload];
+                    }
+                } else {
+                    // Weapons without reserve (shotgun, rocket) - always can reload
+                    [self reload];
+                }
+            }
+        }
     }
 }
 

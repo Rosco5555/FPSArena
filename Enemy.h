@@ -44,6 +44,8 @@ typedef struct {
     int loseSightTimer;       // Frames since player was last seen
     BOOL isActive;            // Whether this enemy is currently active in the game
     int activationTimer;      // Timer until this enemy becomes active
+    int wallHitCount;         // Counter for consecutive wall hits
+    int wallHitCooldown;      // Cooldown before resetting wall hit count
 } BotAIState;
 
 // Initialize bot AI for all enemies

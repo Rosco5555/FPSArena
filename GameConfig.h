@@ -55,7 +55,7 @@ static const float GUN_SCALE = 3.5f;
 
 // World
 static const float FLOOR_Y = -1.0f;
-static const float ARENA_SIZE = 20.0f;  // 40x40 unit arena (half-size for calculations)
+static const float ARENA_SIZE = 25.0f;  // 50x50 unit arena (half-size for calculations)
 
 // Vertical levels
 static const float GROUND_LEVEL = -1.0f;      // y=0 (FLOOR_Y)

@@ -148,7 +148,8 @@
         _commandBuildingBuffer = [GeometryBuilder createCommandBuildingBufferWithDevice:device vertexCount:&_commandBuildingVertexCount];
         _guardTowerBuffer = [GeometryBuilder createGuardTowerBufferWithDevice:device vertexCount:&_guardTowerVertexCount];
         _catwalkBuffer = [GeometryBuilder createCatwalkBufferWithDevice:device vertexCount:&_catwalkVertexCount];
-        _bunkerBuffer = [GeometryBuilder createBunkerBufferWithDevice:device vertexCount:&_bunkerVertexCount];
+        // Bunker removed
+        // _bunkerBuffer = [GeometryBuilder createBunkerBufferWithDevice:device vertexCount:&_bunkerVertexCount];
         _cargoContainersBuffer = [GeometryBuilder createCargoContainersBufferWithDevice:device vertexCount:&_cargoContainersVertexCount];
         _sandbagBuffer = [GeometryBuilder createSandbagBufferWithDevice:device vertexCount:&_sandbagVertexCount];
         _militaryFloorBuffer = [GeometryBuilder createMilitaryFloorBufferWithDevice:device vertexCount:&_militaryFloorVertexCount];
@@ -518,10 +519,10 @@
     [encoder setVertexBytes:&mvp length:sizeof(mvp) atIndex:1];
     [encoder drawPrimitives:MTLPrimitiveTypeTriangle vertexStart:0 vertexCount:_catwalkVertexCount];
 
-    // Draw underground bunker
-    [encoder setVertexBuffer:_bunkerBuffer offset:0 atIndex:0];
-    [encoder setVertexBytes:&mvp length:sizeof(mvp) atIndex:1];
-    [encoder drawPrimitives:MTLPrimitiveTypeTriangle vertexStart:0 vertexCount:_bunkerVertexCount];
+    // Bunker removed
+    // [encoder setVertexBuffer:_bunkerBuffer offset:0 atIndex:0];
+    // [encoder setVertexBytes:&mvp length:sizeof(mvp) atIndex:1];
+    // [encoder drawPrimitives:MTLPrimitiveTypeTriangle vertexStart:0 vertexCount:_bunkerVertexCount];
 
     // Draw cargo containers
     [encoder setVertexBuffer:_cargoContainersBuffer offset:0 atIndex:0];
@@ -1306,6 +1307,76 @@
         simd_float3 slotBg = {0.2f, 0.2f, 0.25f};
         simd_float3 red = {1.0f, 0.3f, 0.3f};
         simd_float3 green = {0.3f, 1.0f, 0.3f};
+
+        // ---- KILL COUNTER (top-center, single-player only) ----
+        if (!state.isMultiplayer) {
+            float kcX = -0.18f;  // Starting X position
+            float kcY = 0.88f;   // Top of screen
+            float kcBgW = 0.36f;
+            float kcBgH = 0.10f;
+
+            // Background
+            HUD_QUAD(kcX, kcY, kcX + kcBgW, kcY + kcBgH, darkBg);
+
+            // "KILLS:" label
+            float lh = 0.045f, lt = 0.006f, lw = 0.024f, lsp = 0.028f;
+            float lx = kcX + 0.015f;
+            float ly = kcY + 0.028f;
+            simd_float3 lblCol = dimWhite;
+
+            // K
+            HUD_QUAD(lx, ly, lx+lt, ly+lh, lblCol);
+            HUD_QUAD(lx, ly+lh*0.45f, lx+lw*0.5f, ly+lh*0.55f, lblCol);
+            HUD_QUAD(lx+lw*0.4f, ly+lh*0.5f, lx+lw, ly+lh, lblCol);
+            HUD_QUAD(lx+lw*0.4f, ly, lx+lw, ly+lh*0.5f, lblCol);
+            lx += lsp;
+            // I
+            HUD_QUAD(lx+lw*0.5f-lt*0.5f, ly, lx+lw*0.5f+lt*0.5f, ly+lh, lblCol);
+            HUD_QUAD(lx, ly, lx+lw, ly+lt, lblCol);
+            HUD_QUAD(lx, ly+lh-lt, lx+lw, ly+lh, lblCol);
+            lx += lsp;
+            // L
+            HUD_QUAD(lx, ly, lx+lt, ly+lh, lblCol);
+            HUD_QUAD(lx, ly, lx+lw, ly+lt, lblCol);
+            lx += lsp;
+            // L
+            HUD_QUAD(lx, ly, lx+lt, ly+lh, lblCol);
+            HUD_QUAD(lx, ly, lx+lw, ly+lt, lblCol);
+            lx += lsp;
+            // S
+            HUD_QUAD(lx, ly+lh-lt, lx+lw, ly+lh, lblCol);
+            HUD_QUAD(lx, ly+lh*0.5f, lx+lt, ly+lh, lblCol);
+            HUD_QUAD(lx, ly+lh*0.45f, lx+lw, ly+lh*0.55f, lblCol);
+            HUD_QUAD(lx+lw-lt, ly, lx+lw, ly+lh*0.5f, lblCol);
+            HUD_QUAD(lx, ly, lx+lw, ly+lt, lblCol);
+            lx += lsp + 0.01f;
+
+            // Kill count number
+            int kills = state.killCount;
+            float dw = 0.028f, dh = 0.05f, dt = 0.006f, ds = 0.035f;
+            float dx = lx;
+            float dy = kcY + 0.025f;
+            simd_float3 numCol = gold;
+
+            #define KILL_DIGIT(d, px, py, c) do { \
+                if (d == 0) { HUD_QUAD(px, py, px+dt, py+dh, c); HUD_QUAD(px+dw-dt, py, px+dw, py+dh, c); HUD_QUAD(px, py+dh-dt, px+dw, py+dh, c); HUD_QUAD(px, py, px+dw, py+dt, c); } \
+                else if (d == 1) { HUD_QUAD(px+dw*0.5f-dt*0.5f, py, px+dw*0.5f+dt*0.5f, py+dh, c); } \
+                else if (d == 2) { HUD_QUAD(px, py+dh-dt, px+dw, py+dh, c); HUD_QUAD(px+dw-dt, py+dh*0.5f, px+dw, py+dh, c); HUD_QUAD(px, py+dh*0.45f, px+dw, py+dh*0.55f, c); HUD_QUAD(px, py, px+dt, py+dh*0.5f, c); HUD_QUAD(px, py, px+dw, py+dt, c); } \
+                else if (d == 3) { HUD_QUAD(px, py+dh-dt, px+dw, py+dh, c); HUD_QUAD(px+dw-dt, py, px+dw, py+dh, c); HUD_QUAD(px, py+dh*0.45f, px+dw, py+dh*0.55f, c); HUD_QUAD(px, py, px+dw, py+dt, c); } \
+                else if (d == 4) { HUD_QUAD(px, py+dh*0.5f, px+dt, py+dh, c); HUD_QUAD(px+dw-dt, py, px+dw, py+dh, c); HUD_QUAD(px, py+dh*0.45f, px+dw, py+dh*0.55f, c); } \
+                else if (d == 5) { HUD_QUAD(px, py+dh-dt, px+dw, py+dh, c); HUD_QUAD(px, py+dh*0.5f, px+dt, py+dh, c); HUD_QUAD(px, py+dh*0.45f, px+dw, py+dh*0.55f, c); HUD_QUAD(px+dw-dt, py, px+dw, py+dh*0.5f, c); HUD_QUAD(px, py, px+dw, py+dt, c); } \
+                else if (d == 6) { HUD_QUAD(px, py, px+dt, py+dh, c); HUD_QUAD(px, py+dh-dt, px+dw, py+dh, c); HUD_QUAD(px, py+dh*0.45f, px+dw, py+dh*0.55f, c); HUD_QUAD(px+dw-dt, py, px+dw, py+dh*0.5f, c); HUD_QUAD(px, py, px+dw, py+dt, c); } \
+                else if (d == 7) { HUD_QUAD(px, py+dh-dt, px+dw, py+dh, c); HUD_QUAD(px+dw-dt, py, px+dw, py+dh, c); } \
+                else if (d == 8) { HUD_QUAD(px, py, px+dt, py+dh, c); HUD_QUAD(px+dw-dt, py, px+dw, py+dh, c); HUD_QUAD(px, py+dh-dt, px+dw, py+dh, c); HUD_QUAD(px, py+dh*0.45f, px+dw, py+dh*0.55f, c); HUD_QUAD(px, py, px+dw, py+dt, c); } \
+                else if (d == 9) { HUD_QUAD(px, py+dh*0.5f, px+dt, py+dh, c); HUD_QUAD(px+dw-dt, py, px+dw, py+dh, c); HUD_QUAD(px, py+dh-dt, px+dw, py+dh, c); HUD_QUAD(px, py+dh*0.45f, px+dw, py+dh*0.55f, c); HUD_QUAD(px, py, px+dw, py+dt, c); } \
+            } while(0)
+
+            if (kills >= 100) { KILL_DIGIT(kills / 100, dx, dy, numCol); dx += ds; }
+            if (kills >= 10) { KILL_DIGIT((kills / 10) % 10, dx, dy, numCol); dx += ds; }
+            KILL_DIGIT(kills % 10, dx, dy, numCol);
+
+            #undef KILL_DIGIT
+        }
 
         WeaponSystem *ws = [WeaponSystem shared];
         WeaponType currentWeapon = [ws getCurrentWeapon];

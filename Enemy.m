@@ -107,6 +107,10 @@ void initializeBotAI(void) {
         botAI[e].canShoot = NO;
         botAI[e].loseSightTimer = 0;
 
+        // Wall collision avoidance
+        botAI[e].wallHitCount = 0;
+        botAI[e].wallHitCooldown = 0;
+
         // Staggered activation: only first few enemies active at start
         if (e < BOT_INITIAL_ACTIVE_COUNT) {
             botAI[e].isActive = YES;
@@ -547,22 +551,31 @@ static void applyBotPhysics(int e) {
     // Enemy collision using CollisionWorld (same as player)
     float enemyRadius = 0.4f;
     float enemyHeight = 1.2f;  // Enemy is 1.2 units tall
+    // enemyY is at center of enemy, collision system expects eye level (top)
+    float enemyEyeOffset = enemyHeight / 2.0f;
 
     CollisionWorld *collisionWorld = [CollisionWorld shared];
 
+    // Convert center position to eye level for collision checks
+    float eyeLevelY = newY + enemyEyeOffset;
+
     // Ground detection using CollisionWorld
-    GroundResult groundResult = [collisionWorld checkGroundAt:newX y:newY z:newZ
+    GroundResult groundResult = [collisionWorld checkGroundAt:newX y:eyeLevelY z:newZ
                                                  playerRadius:enemyRadius
                                                  playerHeight:enemyHeight];
 
     if (groundResult.onGround) {
-        newY = groundResult.groundY + enemyHeight / 2.0f;  // Center height
+        // Set center height based on ground position
+        newY = groundResult.groundY + enemyEyeOffset;
         botAI[e].velocityY = 0;
         botAI[e].onGround = YES;
     }
 
-    // Wall collision using CollisionWorld
-    simd_float3 enemyPos = {newX, newY, newZ};
+    // Update eye level after ground correction
+    eyeLevelY = newY + enemyEyeOffset;
+
+    // Wall collision using CollisionWorld (expects eye level position)
+    simd_float3 enemyPos = {newX, eyeLevelY, newZ};
     simd_float3 enemyVel = {botAI[e].velocityX, botAI[e].velocityY, botAI[e].velocityZ};
     MoveResult moveResult = [collisionWorld movePlayerFrom:enemyPos
                                                   velocity:enemyVel
@@ -571,6 +584,7 @@ static void applyBotPhysics(int e) {
 
     if (moveResult.collided) {
         newX += moveResult.pushOut.x;
+        // Convert pushout from eye level back to center
         newY += moveResult.pushOut.y;
         newZ += moveResult.pushOut.z;
         botAI[e].velocityX = moveResult.newVelocity.x;
@@ -581,6 +595,45 @@ static void applyBotPhysics(int e) {
         if (moveResult.pushOut.y > 0 && botAI[e].velocityY == 0) {
             botAI[e].onGround = YES;
         }
+
+        // Track horizontal wall collisions (not Y axis)
+        if (fabsf(moveResult.pushOut.x) > 0.01f || fabsf(moveResult.pushOut.z) > 0.01f) {
+            botAI[e].wallHitCount++;
+            botAI[e].wallHitCooldown = 60;  // Longer cooldown before reset
+
+            // If hitting walls repeatedly, take action quickly
+            if (botAI[e].wallHitCount >= 3) {
+                botAI[e].wallHitCount = 0;
+
+                // Change behavior based on current state
+                if (botAI[e].behavior == BotBehaviorPatrol) {
+                    // Pick a completely different waypoint
+                    botAI[e].currentWaypoint = (botAI[e].currentWaypoint + 5 + (rand() % 5)) % NUM_WAYPOINTS;
+                } else if (botAI[e].behavior == BotBehaviorChase || botAI[e].behavior == BotBehaviorStrafe) {
+                    // Can't reach player - temporarily go to patrol mode
+                    botAI[e].behavior = BotBehaviorPatrol;
+                    botAI[e].currentWaypoint = rand() % NUM_WAYPOINTS;
+                    botAI[e].playerSpotted = NO;  // Reset spotted state
+                    botAI[e].canShoot = NO;
+                    botAI[e].spottingTimer = 0;
+                } else if (botAI[e].behavior == BotBehaviorTakeCover || botAI[e].behavior == BotBehaviorRetreat) {
+                    // Pick a different cover point
+                    botAI[e].coverTarget = (botAI[e].coverTarget + 2 + (rand() % 3)) % NUM_COVER_POINTS;
+                }
+
+                // Add random velocity push to break out of stuck state
+                float pushAngle = ((float)(rand() % 360)) * M_PI / 180.0f;
+                botAI[e].velocityX += cosf(pushAngle) * 0.05f;
+                botAI[e].velocityZ += sinf(pushAngle) * 0.05f;
+            }
+        }
+    }
+
+    // Decay wall hit count over time if not hitting walls
+    if (botAI[e].wallHitCooldown > 0) {
+        botAI[e].wallHitCooldown--;
+    } else if (botAI[e].wallHitCount > 0) {
+        botAI[e].wallHitCount = 0;  // Reset fully when cooldown expires
     }
 
     enemyX[e] = newX;
