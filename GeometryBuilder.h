@@ -53,8 +53,14 @@
 // CHARACTER & WEAPON GEOMETRY
 // ============================================
 
-// Create gun model buffer
+// Create gun model buffer (legacy - pistol)
 + (id<MTLBuffer>)createGunBufferWithDevice:(id<MTLDevice>)device vertexCount:(NSUInteger *)count;
+
+// Create individual weapon buffers
++ (id<MTLBuffer>)createPistolBufferWithDevice:(id<MTLDevice>)device vertexCount:(NSUInteger *)count;
++ (id<MTLBuffer>)createShotgunBufferWithDevice:(id<MTLDevice>)device vertexCount:(NSUInteger *)count;
++ (id<MTLBuffer>)createRifleBufferWithDevice:(id<MTLDevice>)device vertexCount:(NSUInteger *)count;
++ (id<MTLBuffer>)createRocketLauncherBufferWithDevice:(id<MTLDevice>)device vertexCount:(NSUInteger *)count;
 
 // Create enemy model buffer
 + (id<MTLBuffer>)createEnemyBufferWithDevice:(id<MTLDevice>)device vertexCount:(NSUInteger *)count;

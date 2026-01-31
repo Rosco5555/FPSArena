@@ -46,6 +46,7 @@ static NSData *makeWav(float *samples, int count, int sampleRate) {
 - (instancetype)init {
     self = [super init];
     if (self) {
+        _masterVolume = 1.0f;
         [self initSounds];
     }
     return self;
@@ -149,18 +150,20 @@ static NSData *makeWav(float *samples, int count, int sampleRate) {
 
 - (void)playGunSound {
     [_gunSound stop];
+    [_gunSound setVolume:_masterVolume];
     [_gunSound play];
 }
 
 - (void)playEnemyGunSoundWithVolume:(float)volume {
     [_enemyGunSound stop];
-    [_enemyGunSound setVolume:volume];
+    [_enemyGunSound setVolume:volume * _masterVolume];
     [_enemyGunSound play];
 }
 
 - (void)playDoorSound {
     if (_doorSound) {
         [_doorSound stop];
+        [_doorSound setVolume:_masterVolume];
         [_doorSound play];
     }
 }
@@ -168,6 +171,7 @@ static NSData *makeWav(float *samples, int count, int sampleRate) {
 - (void)playFootstepSound {
     if (_footstepSound) {
         [_footstepSound stop];
+        [_footstepSound setVolume:_masterVolume];
         [_footstepSound play];
     }
 }
@@ -175,6 +179,7 @@ static NSData *makeWav(float *samples, int count, int sampleRate) {
 - (void)playPickupSound {
     if (_pickupSound) {
         [_pickupSound stop];
+        [_pickupSound setVolume:_masterVolume];
         [_pickupSound play];
     }
 }

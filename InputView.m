@@ -31,8 +31,41 @@
 }
 
 - (void)mouseMoved:(NSEvent *)event {
+    GameState *state = [GameState shared];
+
+    // Handle pause menu hover detection
+    if (state.showPauseMenu) {
+        NSPoint loc = [self convertPoint:event.locationInWindow fromView:nil];
+        NSSize size = self.bounds.size;
+
+        // Convert to normalized coordinates (-1 to 1)
+        float nx = (loc.x / size.width) * 2.0f - 1.0f;
+        float ny = (loc.y / size.height) * 2.0f - 1.0f;
+
+        // Menu layout constants (MUST match Renderer.m)
+        float itemHeight = 0.09f;
+        float menuTop = 0.28f;
+        float itemSpacing = 0.115f;
+        float itemLeft = -0.46f;
+        float itemRight = 0.46f;
+
+        state.pauseMenuSelection = -1;  // Default to no selection
+
+        if (nx >= itemLeft && nx <= itemRight) {
+            for (int i = 0; i < 4; i++) {
+                float itemTop = menuTop - i * itemSpacing;
+                float itemBottom = itemTop - itemHeight;
+                if (ny <= itemTop && ny >= itemBottom) {
+                    state.pauseMenuSelection = i;
+                    break;
+                }
+            }
+        }
+        return;
+    }
+
     if (!_controlsActive) return;
-    float sensitivity = [GameState shared].mouseSensitivity;
+    float sensitivity = state.mouseSensitivity;
     _camYaw += event.deltaX * sensitivity;
     _camPitch -= event.deltaY * sensitivity;
     if (_camPitch > 1.5) _camPitch = 1.5;
@@ -40,6 +73,99 @@
 }
 
 - (void)mouseDown:(NSEvent *)event {
+    GameState *state = [GameState shared];
+
+    // Handle pause menu clicks
+    if (state.showPauseMenu) {
+        NSPoint loc = [self convertPoint:event.locationInWindow fromView:nil];
+        NSSize size = self.bounds.size;
+
+        // Convert to normalized coordinates (-1 to 1)
+        float nx = (loc.x / size.width) * 2.0f - 1.0f;
+        float ny = (loc.y / size.height) * 2.0f - 1.0f;
+
+        // Menu layout constants (MUST match Renderer.m)
+        float itemHeight = 0.09f;
+        float menuTop = 0.28f;
+        float itemSpacing = 0.115f;
+        float itemLeft = -0.46f;
+        float itemRight = 0.46f;
+
+        // Slider layout (MUST match Renderer.m)
+        float sliderLeft = -0.38f;
+        float sliderRight = 0.38f;
+
+        // Calculate slider Y positions (matching Renderer.m formula)
+        float sens_itemTop = menuTop - 1 * itemSpacing;
+        float sens_itemBottom = sens_itemTop - itemHeight;
+        float sliderY1 = sens_itemBottom + itemHeight * 0.22f;  // Sensitivity slider
+
+        float vol_itemTop = menuTop - 2 * itemSpacing;
+        float vol_itemBottom = vol_itemTop - itemHeight;
+        float sliderY2 = vol_itemBottom + itemHeight * 0.22f;   // Volume slider
+
+        // Generous hit area for sliders
+        float sliderHitHeight = 0.05f;
+
+        // Check if clicking on sensitivity slider area
+        if (nx >= sliderLeft - 0.02f && nx <= sliderRight + 0.02f &&
+            ny >= sliderY1 - sliderHitHeight && ny <= sliderY1 + sliderHitHeight) {
+            float t = (nx - sliderLeft) / (sliderRight - sliderLeft);
+            if (t < 0) t = 0;
+            if (t > 1) t = 1;
+            state.mouseSensitivity = 0.001f + t * (0.02f - 0.001f);
+            return;
+        }
+
+        // Check if clicking on volume slider area
+        if (nx >= sliderLeft - 0.02f && nx <= sliderRight + 0.02f &&
+            ny >= sliderY2 - sliderHitHeight && ny <= sliderY2 + sliderHitHeight) {
+            float t = (nx - sliderLeft) / (sliderRight - sliderLeft);
+            if (t < 0) t = 0;
+            if (t > 1) t = 1;
+            state.masterVolume = t;
+            [[SoundManager shared] setMasterVolume:t];
+            return;
+        }
+
+        // Check menu item clicks
+        if (nx >= itemLeft && nx <= itemRight) {
+            for (int i = 0; i < 4; i++) {
+                float itemTop = menuTop - i * itemSpacing;
+                float itemBottom = itemTop - itemHeight;
+                if (ny <= itemTop && ny >= itemBottom) {
+                    switch (i) {
+                        case 0:  // Resume
+                            state.showPauseMenu = NO;
+                            state.isPaused = NO;
+                            state.pauseMenuSelection = -1;
+                            _controlsActive = YES;
+                            _escapedLock = NO;
+                            CGAssociateMouseAndMouseCursorPosition(false);
+                            [NSCursor hide];
+                            break;
+                        case 1:  // Sensitivity (handled by slider above)
+                            break;
+                        case 2:  // Volume (handled by slider above)
+                            break;
+                        case 3:  // Main Menu
+                            state.showPauseMenu = NO;
+                            state.isPaused = NO;
+                            _controlsActive = NO;
+                            CGAssociateMouseAndMouseCursorPosition(true);
+                            [NSCursor unhide];
+                            if ([_inputDelegate respondsToSelector:@selector(inputViewDidRequestMenu)]) {
+                                [_inputDelegate inputViewDidRequestMenu];
+                            }
+                            break;
+                    }
+                    return;
+                }
+            }
+        }
+        return;
+    }
+
     if (_controlsActive) {
         _wantsClick = YES;
         _mouseHeld = YES;
@@ -54,6 +180,59 @@
 - (BOOL)acceptsFirstMouse:(NSEvent *)event { return YES; }
 
 - (void)mouseDragged:(NSEvent *)event {
+    GameState *state = [GameState shared];
+
+    // Handle slider dragging in pause menu
+    if (state.showPauseMenu) {
+        NSPoint loc = [self convertPoint:event.locationInWindow fromView:nil];
+        NSSize size = self.bounds.size;
+
+        // Convert to normalized coordinates (-1 to 1)
+        float nx = (loc.x / size.width) * 2.0f - 1.0f;
+        float ny = (loc.y / size.height) * 2.0f - 1.0f;
+
+        // Menu layout constants (MUST match Renderer.m)
+        float itemHeight = 0.09f;
+        float menuTop = 0.28f;
+        float itemSpacing = 0.115f;
+
+        // Slider layout (MUST match Renderer.m)
+        float sliderLeft = -0.38f;
+        float sliderRight = 0.38f;
+
+        // Calculate slider Y positions
+        float sens_itemTop = menuTop - 1 * itemSpacing;
+        float sens_itemBottom = sens_itemTop - itemHeight;
+        float sliderY1 = sens_itemBottom + itemHeight * 0.22f;
+
+        float vol_itemTop = menuTop - 2 * itemSpacing;
+        float vol_itemBottom = vol_itemTop - itemHeight;
+        float sliderY2 = vol_itemBottom + itemHeight * 0.22f;
+
+        // Generous hit area for dragging
+        float sliderHitHeight = 0.08f;
+
+        // Check if dragging sensitivity slider
+        if (ny >= sliderY1 - sliderHitHeight && ny <= sliderY1 + sliderHitHeight) {
+            float t = (nx - sliderLeft) / (sliderRight - sliderLeft);
+            if (t < 0) t = 0;
+            if (t > 1) t = 1;
+            state.mouseSensitivity = 0.001f + t * (0.02f - 0.001f);
+            return;
+        }
+
+        // Check if dragging volume slider
+        if (ny >= sliderY2 - sliderHitHeight && ny <= sliderY2 + sliderHitHeight) {
+            float t = (nx - sliderLeft) / (sliderRight - sliderLeft);
+            if (t < 0) t = 0;
+            if (t > 1) t = 1;
+            state.masterVolume = t;
+            [[SoundManager shared] setMasterVolume:t];
+            return;
+        }
+        return;
+    }
+
     [self mouseMoved:event];
 }
 
@@ -66,11 +245,36 @@
     GameState *state = [GameState shared];
 
     if (key == 27) {
-        _controlsActive = NO;
-        CGAssociateMouseAndMouseCursorPosition(true);
-        [NSCursor unhide];
-        if ([_inputDelegate respondsToSelector:@selector(inputViewDidRequestMenu)]) {
-            [_inputDelegate inputViewDidRequestMenu];
+        if (state.gameOver) {
+            // If game is over, ESC returns to main menu
+            _controlsActive = NO;
+            CGAssociateMouseAndMouseCursorPosition(true);
+            [NSCursor unhide];
+            if ([_inputDelegate respondsToSelector:@selector(inputViewDidRequestMenu)]) {
+                [_inputDelegate inputViewDidRequestMenu];
+            }
+            return;
+        }
+
+        // Toggle pause menu
+        if (state.showPauseMenu) {
+            // Close pause menu and resume game
+            state.showPauseMenu = NO;
+            state.isPaused = NO;
+            state.pauseMenuSelection = -1;
+            _controlsActive = YES;
+            _escapedLock = NO;
+            CGAssociateMouseAndMouseCursorPosition(false);
+            [NSCursor hide];
+        } else {
+            // Open pause menu
+            state.showPauseMenu = YES;
+            state.isPaused = YES;
+            state.pauseMenuSelection = -1;
+            _controlsActive = NO;
+            _escapedLock = YES;
+            CGAssociateMouseAndMouseCursorPosition(true);
+            [NSCursor unhide];
         }
         return;
     }

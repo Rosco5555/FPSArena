@@ -710,6 +710,138 @@
     return [device newBufferWithBytes:gunVerts length:sizeof(Vertex) * gv options:MTLResourceStorageModeShared];
 }
 
++ (id<MTLBuffer>)createPistolBufferWithDevice:(id<MTLDevice>)device vertexCount:(NSUInteger *)count {
+    // Same as the default gun - compact pistol
+    return [self createGunBufferWithDevice:device vertexCount:count];
+}
+
++ (id<MTLBuffer>)createShotgunBufferWithDevice:(id<MTLDevice>)device vertexCount:(NSUInteger *)count {
+    #define MAX_SHOTGUN_VERTS 1500
+    Vertex gunVerts[MAX_SHOTGUN_VERTS];
+    int gv = 0;
+
+    simd_float3 gunDark = {0.15, 0.10, 0.08};
+    simd_float3 gunMid = {0.25, 0.18, 0.12};
+    simd_float3 gunLight = {0.35, 0.25, 0.18};
+    simd_float3 woodDark = {0.35, 0.22, 0.12};
+    simd_float3 woodMid = {0.50, 0.32, 0.18};
+    simd_float3 woodLight = {0.60, 0.40, 0.22};
+    simd_float3 metalDark = {0.08, 0.08, 0.10};
+    simd_float3 metalMid = {0.18, 0.18, 0.20};
+    simd_float3 skinLight = {0.87, 0.72, 0.60};
+    simd_float3 skinMid = {0.76, 0.60, 0.48};
+    simd_float3 skinDark = {0.65, 0.50, 0.40};
+    simd_float3 skinShadow = {0.55, 0.42, 0.35};
+    simd_float3 sleeveLight = {0.18, 0.18, 0.20};
+    simd_float3 sleeveMid = {0.12, 0.12, 0.14};
+    simd_float3 sleeveDark = {0.08, 0.08, 0.10};
+
+    // Long barrel (shotgun is longer than pistol)
+    BOX3D(gunVerts, gv, -0.025f, 0.0f, -0.12f, 0.025f, 0.035f, 0.30f, metalMid, metalDark, metalMid, metalMid, metalMid, metalDark);
+    // Second barrel (double barrel shotgun)
+    BOX3D(gunVerts, gv, -0.025f, 0.035f, -0.12f, 0.025f, 0.07f, 0.30f, metalMid, metalDark, metalMid, metalMid, metalMid, metalDark);
+    // Receiver
+    BOX3D(gunVerts, gv, -0.035f, -0.02f, -0.15f, 0.035f, 0.08f, -0.02f, gunMid, gunDark, gunLight, gunMid, gunLight, gunDark);
+    // Wooden stock
+    BOX3D(gunVerts, gv, -0.03f, -0.12f, -0.35f, 0.03f, 0.02f, -0.12f, woodMid, woodDark, woodLight, woodMid, woodLight, woodDark);
+    BOX3D(gunVerts, gv, -0.025f, -0.08f, -0.55f, 0.025f, -0.02f, -0.35f, woodMid, woodDark, woodLight, woodMid, woodLight, woodDark);
+    // Trigger guard
+    BOX3D(gunVerts, gv, -0.02f, -0.06f, -0.10f, 0.02f, -0.02f, -0.02f, metalDark, metalDark, metalDark, metalDark, metalDark, metalDark);
+    // Hands
+    BOX3D(gunVerts, gv, -0.04f, -0.10f, -0.05f, 0.04f, 0.02f, 0.08f, skinMid, skinDark, skinLight, skinMid, skinLight, skinShadow);
+    BOX3D(gunVerts, gv, -0.05f, -0.16f, -0.30f, 0.05f, 0.0f, -0.13f, sleeveMid, sleeveDark, sleeveLight, sleeveMid, sleeveLight, sleeveDark);
+    BOX3D(gunVerts, gv, -0.06f, -0.22f, -0.50f, 0.06f, -0.02f, -0.30f, sleeveMid, sleeveDark, sleeveLight, sleeveMid, sleeveLight, sleeveDark);
+    BOX3D(gunVerts, gv, -0.08f, -0.35f, -0.80f, 0.08f, -0.05f, -0.50f, sleeveMid, sleeveDark, sleeveLight, sleeveMid, sleeveLight, sleeveDark);
+
+    *count = gv;
+    return [device newBufferWithBytes:gunVerts length:sizeof(Vertex) * gv options:MTLResourceStorageModeShared];
+}
+
++ (id<MTLBuffer>)createRifleBufferWithDevice:(id<MTLDevice>)device vertexCount:(NSUInteger *)count {
+    #define MAX_RIFLE_VERTS 1500
+    Vertex gunVerts[MAX_RIFLE_VERTS];
+    int gv = 0;
+
+    simd_float3 gunDark = {0.10, 0.10, 0.12};
+    simd_float3 gunMid = {0.20, 0.20, 0.22};
+    simd_float3 gunLight = {0.30, 0.30, 0.32};
+    simd_float3 gunAccent = {0.15, 0.15, 0.17};
+    simd_float3 skinLight = {0.87, 0.72, 0.60};
+    simd_float3 skinMid = {0.76, 0.60, 0.48};
+    simd_float3 skinDark = {0.65, 0.50, 0.40};
+    simd_float3 skinShadow = {0.55, 0.42, 0.35};
+    simd_float3 sleeveLight = {0.18, 0.18, 0.20};
+    simd_float3 sleeveMid = {0.12, 0.12, 0.14};
+    simd_float3 sleeveDark = {0.08, 0.08, 0.10};
+
+    // Long barrel
+    BOX3D(gunVerts, gv, -0.018f, 0.01f, -0.10f, 0.018f, 0.04f, 0.35f, gunDark, gunDark, gunDark, gunDark, gunDark, gunDark);
+    // Main body/receiver
+    BOX3D(gunVerts, gv, -0.035f, 0.0f, -0.18f, 0.035f, 0.05f, 0.05f, gunMid, gunDark, gunLight, gunMid, gunLight, gunDark);
+    // Magazine
+    BOX3D(gunVerts, gv, -0.02f, -0.12f, -0.08f, 0.02f, 0.0f, 0.02f, gunAccent, gunDark, gunAccent, gunAccent, gunDark, gunDark);
+    // Stock
+    BOX3D(gunVerts, gv, -0.025f, -0.04f, -0.35f, 0.025f, 0.04f, -0.15f, gunMid, gunDark, gunLight, gunMid, gunLight, gunDark);
+    // Grip
+    BOX3D(gunVerts, gv, -0.02f, -0.10f, -0.18f, 0.02f, 0.0f, -0.10f, gunDark, gunDark, gunMid, gunMid, gunDark, gunDark);
+    // Front grip
+    BOX3D(gunVerts, gv, -0.02f, -0.06f, 0.05f, 0.02f, 0.0f, 0.15f, gunDark, gunDark, gunMid, gunMid, gunDark, gunDark);
+    // Sight
+    BOX3D(gunVerts, gv, -0.01f, 0.05f, -0.05f, 0.01f, 0.07f, 0.02f, gunDark, gunDark, gunDark, gunDark, gunLight, gunDark);
+    // Hands
+    BOX3D(gunVerts, gv, -0.04f, -0.10f, 0.0f, 0.04f, 0.02f, 0.12f, skinMid, skinDark, skinLight, skinMid, skinLight, skinShadow);
+    BOX3D(gunVerts, gv, -0.04f, -0.12f, -0.20f, 0.04f, 0.0f, -0.08f, skinMid, skinDark, skinLight, skinMid, skinLight, skinShadow);
+    BOX3D(gunVerts, gv, -0.05f, -0.16f, -0.38f, 0.05f, 0.0f, -0.18f, sleeveMid, sleeveDark, sleeveLight, sleeveMid, sleeveLight, sleeveDark);
+    BOX3D(gunVerts, gv, -0.06f, -0.22f, -0.55f, 0.06f, -0.02f, -0.38f, sleeveMid, sleeveDark, sleeveLight, sleeveMid, sleeveLight, sleeveDark);
+    BOX3D(gunVerts, gv, -0.08f, -0.35f, -0.85f, 0.08f, -0.05f, -0.55f, sleeveMid, sleeveDark, sleeveLight, sleeveMid, sleeveLight, sleeveDark);
+
+    *count = gv;
+    return [device newBufferWithBytes:gunVerts length:sizeof(Vertex) * gv options:MTLResourceStorageModeShared];
+}
+
++ (id<MTLBuffer>)createRocketLauncherBufferWithDevice:(id<MTLDevice>)device vertexCount:(NSUInteger *)count {
+    #define MAX_ROCKET_VERTS 1500
+    Vertex gunVerts[MAX_ROCKET_VERTS];
+    int gv = 0;
+
+    simd_float3 tubeDark = {0.25, 0.30, 0.22};
+    simd_float3 tubeMid = {0.35, 0.42, 0.30};
+    simd_float3 tubeLight = {0.45, 0.52, 0.38};
+    simd_float3 metalDark = {0.12, 0.12, 0.14};
+    simd_float3 metalMid = {0.22, 0.22, 0.24};
+    simd_float3 skinLight = {0.87, 0.72, 0.60};
+    simd_float3 skinMid = {0.76, 0.60, 0.48};
+    simd_float3 skinDark = {0.65, 0.50, 0.40};
+    simd_float3 skinShadow = {0.55, 0.42, 0.35};
+    simd_float3 sleeveLight = {0.18, 0.18, 0.20};
+    simd_float3 sleeveMid = {0.12, 0.12, 0.14};
+    simd_float3 sleeveDark = {0.08, 0.08, 0.10};
+
+    // Main tube (large cylinder approximated with box)
+    BOX3D(gunVerts, gv, -0.06f, -0.02f, -0.15f, 0.06f, 0.10f, 0.40f, tubeMid, tubeDark, tubeLight, tubeMid, tubeLight, tubeDark);
+    // Front opening rim
+    BOX3D(gunVerts, gv, -0.07f, -0.03f, 0.38f, 0.07f, 0.11f, 0.42f, metalDark, metalDark, metalMid, metalDark, metalMid, metalDark);
+    // Back opening
+    BOX3D(gunVerts, gv, -0.065f, -0.025f, -0.18f, 0.065f, 0.105f, -0.15f, metalDark, metalDark, metalMid, metalDark, metalMid, metalDark);
+    // Grip section
+    BOX3D(gunVerts, gv, -0.035f, -0.12f, -0.05f, 0.035f, -0.02f, 0.10f, metalMid, metalDark, metalMid, metalMid, metalMid, metalDark);
+    // Trigger area
+    BOX3D(gunVerts, gv, -0.02f, -0.08f, 0.0f, 0.02f, -0.02f, 0.06f, metalDark, metalDark, metalDark, metalDark, metalDark, metalDark);
+    // Shoulder rest
+    BOX3D(gunVerts, gv, -0.04f, -0.06f, -0.30f, 0.04f, 0.06f, -0.15f, tubeMid, tubeDark, tubeLight, tubeMid, tubeLight, tubeDark);
+    // Sight
+    BOX3D(gunVerts, gv, -0.015f, 0.10f, 0.05f, 0.015f, 0.15f, 0.20f, metalDark, metalDark, metalMid, metalDark, metalMid, metalDark);
+    // Hands
+    BOX3D(gunVerts, gv, -0.04f, -0.14f, 0.05f, 0.04f, -0.02f, 0.18f, skinMid, skinDark, skinLight, skinMid, skinLight, skinShadow);
+    BOX3D(gunVerts, gv, -0.04f, -0.14f, -0.12f, 0.04f, -0.02f, 0.0f, skinMid, skinDark, skinLight, skinMid, skinLight, skinShadow);
+    BOX3D(gunVerts, gv, -0.05f, -0.18f, -0.35f, 0.05f, -0.02f, -0.10f, sleeveMid, sleeveDark, sleeveLight, sleeveMid, sleeveLight, sleeveDark);
+    BOX3D(gunVerts, gv, -0.06f, -0.24f, -0.55f, 0.06f, -0.04f, -0.35f, sleeveMid, sleeveDark, sleeveLight, sleeveMid, sleeveLight, sleeveDark);
+    BOX3D(gunVerts, gv, -0.08f, -0.38f, -0.85f, 0.08f, -0.08f, -0.55f, sleeveMid, sleeveDark, sleeveLight, sleeveMid, sleeveLight, sleeveDark);
+
+    *count = gv;
+    return [device newBufferWithBytes:gunVerts length:sizeof(Vertex) * gv options:MTLResourceStorageModeShared];
+}
+
 + (id<MTLBuffer>)createEnemyBufferWithDevice:(id<MTLDevice>)device vertexCount:(NSUInteger *)count {
     #define MAX_ENEMY_VERTS 600
     Vertex enemyVerts[MAX_ENEMY_VERTS];

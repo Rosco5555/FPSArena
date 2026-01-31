@@ -74,6 +74,15 @@ typedef struct {
 
 // Settings
 @property (nonatomic) float mouseSensitivity;  // Adjustable mouse sensitivity
+@property (nonatomic) float masterVolume;      // Master volume (0.0 - 1.0)
+
+// Pause menu state
+@property (nonatomic) BOOL showPauseMenu;      // Whether pause menu is visible
+@property (nonatomic) int pauseMenuSelection;  // Currently hovered menu item (0=resume, 1=sensitivity, 2=volume, 3=mainmenu)
+
+// Pickup notification
+@property (nonatomic) int pickupNotificationTimer;  // Frames remaining to show notification
+@property (nonatomic, strong) NSString *pickupNotificationText;  // Text to display
 
 // ============================================
 // MULTIPLAYER STATE

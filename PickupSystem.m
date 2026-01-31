@@ -120,11 +120,11 @@
     for (int i = 0; i < _pickupCount; i++) {
         if (!_pickups[i].isActive) continue;
 
-        // Calculate distance to pickup
+        // Calculate distance to pickup (2D XZ distance - ignore Y since player eye level
+        // is much higher than floor-level pickups)
         float dx = playerPosition.x - _pickups[i].x;
-        float dy = playerPosition.y - (_pickups[i].y + _pickups[i].bobOffset);
         float dz = playerPosition.z - _pickups[i].z;
-        float distSq = dx * dx + dy * dy + dz * dz;
+        float distSq = dx * dx + dz * dz;
 
         if (distSq < PICKUP_COLLECT_RADIUS * PICKUP_COLLECT_RADIUS) {
             // Check if player can actually use this pickup

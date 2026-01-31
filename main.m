@@ -268,24 +268,7 @@
 static NSString *kLogFilePath = @"/tmp/fpsgame_debug.log";
 
 void setupDebugLogging(void) {
-    // Clear old log file
-    [@"" writeToFile:kLogFilePath atomically:YES encoding:NSUTF8StringEncoding error:nil];
-
-    // Redirect stderr to log file (NSLog uses stderr)
-    freopen([kLogFilePath UTF8String], "a", stderr);
-
-    // Open Terminal window to tail the log
-    NSString *script = [NSString stringWithFormat:
-        @"tell application \"Terminal\"\n"
-        @"    activate\n"
-        @"    do script \"tail -f %@\"\n"
-        @"end tell", kLogFilePath];
-
-    NSAppleScript *appleScript = [[NSAppleScript alloc] initWithSource:script];
-    [appleScript executeAndReturnError:nil];
-
-    NSLog(@"=== FPS Arena Debug Log ===");
-    NSLog(@"Game starting...");
+    // Debug logging disabled - no terminal window
 }
 
 int main(int argc, const char *argv[]) {

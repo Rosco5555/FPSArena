@@ -22,6 +22,9 @@
 - (void)playFootstepSound;
 - (void)playPickupSound;
 
+// Master volume (applied to all sounds)
+@property (nonatomic) float masterVolume;
+
 @end
 
 #endif // SOUNDMANAGER_H

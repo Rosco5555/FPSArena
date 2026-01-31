@@ -88,6 +88,9 @@
         // Default mouse sensitivity
         _mouseSensitivity = MOUSE_SENSITIVITY;
 
+        // Default master volume
+        _masterVolume = 1.0f;
+
         [self resetGame];
     }
     return self;
@@ -120,6 +123,10 @@
     _playerArmor = 0;
     _gameOver = NO;
     _isPaused = NO;
+    _showPauseMenu = NO;
+    _pauseMenuSelection = -1;
+    _pickupNotificationTimer = 0;
+    _pickupNotificationText = nil;
     _bloodLevel = 0.0f;
     _bloodFlashTimer = 0;
     _damageCooldownTimer = 0;

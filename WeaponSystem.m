@@ -1,6 +1,7 @@
 // WeaponSystem.m - Multi-weapon system implementation
 #import "WeaponSystem.h"
 #import "SoundManager.h"
+#import "GameState.h"
 #import <math.h>
 
 // Weapon statistics definitions
@@ -113,6 +114,25 @@ static const WeaponStats WEAPON_STATS[WeaponTypeCount] = {
     // Already using this weapon
     if (_weaponState.currentWeapon == weaponType) {
         return NO;
+    }
+
+    // Check if player owns this weapon
+    GameState *state = [GameState shared];
+    switch (weaponType) {
+        case WeaponTypePistol:
+            // Pistol is always available
+            break;
+        case WeaponTypeShotgun:
+            if (!state.hasWeaponShotgun) return NO;
+            break;
+        case WeaponTypeAssaultRifle:
+            if (!state.hasWeaponAssaultRifle) return NO;
+            break;
+        case WeaponTypeRocketLauncher:
+            if (!state.hasWeaponRocketLauncher) return NO;
+            break;
+        default:
+            return NO;
     }
 
     _weaponState.currentWeapon = weaponType;
@@ -378,6 +398,14 @@ static const WeaponStats WEAPON_STATS[WeaponTypeCount] = {
 
     // No reserve (shotgun, rocket)
     return [NSString stringWithFormat:@"%d / %d", current, stats.magSize];
+}
+
+- (int)getCurrentAmmo {
+    return _weaponState.currentAmmo[_weaponState.currentWeapon];
+}
+
+- (int)getReserveAmmo {
+    return _weaponState.reserveAmmo[_weaponState.currentWeapon];
 }
 
 - (NSString *)getWeaponName:(WeaponType)weaponType {

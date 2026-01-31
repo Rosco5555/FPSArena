@@ -94,6 +94,12 @@ typedef struct {
 // Get ammo display string for HUD
 - (NSString *)getAmmoDisplayString;
 
+// Get current ammo in magazine
+- (int)getCurrentAmmo;
+
+// Get reserve ammo for current weapon
+- (int)getReserveAmmo;
+
 // Reset weapon state (for game restart)
 - (void)resetWeapons;
 

@@ -12,6 +12,7 @@
 #import "GeometryBuilder.h"
 #import "MultiplayerController.h"
 #import "PickupSystem.h"
+#import "WeaponSystem.h"
 
 @interface MetalRenderer ()
 @property (nonatomic, strong) id<MTLRenderPipelineState> pipelineState;
@@ -30,6 +31,14 @@
 @property (nonatomic, strong) id<MTLBuffer> wall2Buffer;
 @property (nonatomic, strong) id<MTLBuffer> gunVertexBuffer;
 @property (nonatomic) NSUInteger gunVertexCount;
+@property (nonatomic, strong) id<MTLBuffer> pistolBuffer;
+@property (nonatomic) NSUInteger pistolVertexCount;
+@property (nonatomic, strong) id<MTLBuffer> shotgunBuffer;
+@property (nonatomic) NSUInteger shotgunVertexCount;
+@property (nonatomic, strong) id<MTLBuffer> rifleBuffer;
+@property (nonatomic) NSUInteger rifleVertexCount;
+@property (nonatomic, strong) id<MTLBuffer> rocketLauncherBuffer;
+@property (nonatomic) NSUInteger rocketLauncherVertexCount;
 @property (nonatomic, strong) id<MTLBuffer> enemyVertexBuffer;
 @property (nonatomic) NSUInteger enemyVertexCount;
 @property (nonatomic, strong) id<MTLBuffer> muzzleFlashBuffer;
@@ -111,6 +120,10 @@
         _wall1Buffer = [GeometryBuilder createWall1BufferWithDevice:device];
         _wall2Buffer = [GeometryBuilder createWall2BufferWithDevice:device];
         _gunVertexBuffer = [GeometryBuilder createGunBufferWithDevice:device vertexCount:&_gunVertexCount];
+        _pistolBuffer = [GeometryBuilder createPistolBufferWithDevice:device vertexCount:&_pistolVertexCount];
+        _shotgunBuffer = [GeometryBuilder createShotgunBufferWithDevice:device vertexCount:&_shotgunVertexCount];
+        _rifleBuffer = [GeometryBuilder createRifleBufferWithDevice:device vertexCount:&_rifleVertexCount];
+        _rocketLauncherBuffer = [GeometryBuilder createRocketLauncherBufferWithDevice:device vertexCount:&_rocketLauncherVertexCount];
         _enemyVertexBuffer = [GeometryBuilder createEnemyBufferWithDevice:device vertexCount:&_enemyVertexCount];
         _muzzleFlashBuffer = [GeometryBuilder createMuzzleFlashBufferWithDevice:device];
         _healthBarBgBuffer = [GeometryBuilder createHealthBarBgBufferWithDevice:device];
@@ -395,6 +408,26 @@
             float czl = containerPlatforms[c].rotated ? CONTAINER_LENGTH/2 : CONTAINER_WIDTH/2;
             CHECK_PLATFORM_LANDING(cx - cxl, cz - czl, cx + cxl, cz + czl, cy);
         }
+
+        // Sandbag walls (low cover - can stand on top)
+        float sandbagTopY = FLOOR_Y + SANDBAG_HEIGHT;
+        // Horizontal sandbags (length along X)
+        CHECK_PLATFORM_LANDING(5.0f - SANDBAG_LENGTH/2, 4.0f - SANDBAG_THICK/2, 5.0f + SANDBAG_LENGTH/2, 4.0f + SANDBAG_THICK/2, sandbagTopY);
+        CHECK_PLATFORM_LANDING(-5.0f - SANDBAG_LENGTH/2, 4.0f - SANDBAG_THICK/2, -5.0f + SANDBAG_LENGTH/2, 4.0f + SANDBAG_THICK/2, sandbagTopY);
+        CHECK_PLATFORM_LANDING(5.0f - SANDBAG_LENGTH/2, -4.0f - SANDBAG_THICK/2, 5.0f + SANDBAG_LENGTH/2, -4.0f + SANDBAG_THICK/2, sandbagTopY);
+        CHECK_PLATFORM_LANDING(-5.0f - SANDBAG_LENGTH/2, -4.0f - SANDBAG_THICK/2, -5.0f + SANDBAG_LENGTH/2, -4.0f + SANDBAG_THICK/2, sandbagTopY);
+        // Vertical sandbags (length along Z)
+        CHECK_PLATFORM_LANDING(12.0f - SANDBAG_THICK/2, 10.0f - SANDBAG_LENGTH/2, 12.0f + SANDBAG_THICK/2, 10.0f + SANDBAG_LENGTH/2, sandbagTopY);
+        CHECK_PLATFORM_LANDING(-12.0f - SANDBAG_THICK/2, 10.0f - SANDBAG_LENGTH/2, -12.0f + SANDBAG_THICK/2, 10.0f + SANDBAG_LENGTH/2, sandbagTopY);
+        CHECK_PLATFORM_LANDING(12.0f - SANDBAG_THICK/2, -10.0f - SANDBAG_LENGTH/2, 12.0f + SANDBAG_THICK/2, -10.0f + SANDBAG_LENGTH/2, sandbagTopY);
+        CHECK_PLATFORM_LANDING(-12.0f - SANDBAG_THICK/2, -10.0f - SANDBAG_LENGTH/2, -12.0f + SANDBAG_THICK/2, -10.0f + SANDBAG_LENGTH/2, sandbagTopY);
+        CHECK_PLATFORM_LANDING(3.0f - SANDBAG_THICK/2, 8.0f - SANDBAG_LENGTH/2, 3.0f + SANDBAG_THICK/2, 8.0f + SANDBAG_LENGTH/2, sandbagTopY);
+        CHECK_PLATFORM_LANDING(-3.0f - SANDBAG_THICK/2, 8.0f - SANDBAG_LENGTH/2, -3.0f + SANDBAG_THICK/2, 8.0f + SANDBAG_LENGTH/2, sandbagTopY);
+
+        // Legacy cover walls (WALL1 and WALL2)
+        float wallTopY = FLOOR_Y + WALL_HEIGHT;
+        CHECK_PLATFORM_LANDING(WALL1_X - WALL_WIDTH/2, WALL1_Z - WALL_DEPTH/2, WALL1_X + WALL_WIDTH/2, WALL1_Z + WALL_DEPTH/2, wallTopY);
+        CHECK_PLATFORM_LANDING(WALL2_X - WALL_WIDTH/2, WALL2_Z - WALL_DEPTH/2, WALL2_X + WALL_WIDTH/2, WALL2_Z + WALL_DEPTH/2, wallTopY);
 
         // Command building second floor
         float hw = CMD_BUILDING_WIDTH / 2.0f;
@@ -792,7 +825,7 @@
         // Fire rate
         if (_metalView.fireTimer > 0) _metalView.fireTimer--;
 
-        // Handle shooting
+        // Handle shooting (automatic fire when holding mouse)
         BOOL shouldFire = _metalView.wantsClick || (_metalView.mouseHeld && _metalView.fireTimer == 0);
         _metalView.wantsClick = NO;
 
@@ -819,7 +852,39 @@
 
         // Check for pickup collection
         if (!state.gameOver) {
-            [pickupSystem checkPlayerPickup:camPos];
+            PickupResult result = [pickupSystem checkPlayerPickup:camPos];
+            if (result.collected) {
+                // Set notification based on pickup type
+                state.pickupNotificationTimer = 180;  // 3 seconds at 60fps
+                switch (result.type) {
+                    case PickupTypeHealthPack:
+                        state.pickupNotificationText = @"+50 HEALTH";
+                        break;
+                    case PickupTypeAmmoSmall:
+                        state.pickupNotificationText = @"+30 AMMO";
+                        break;
+                    case PickupTypeAmmoHeavy:
+                        state.pickupNotificationText = @"+10 HEAVY AMMO";
+                        break;
+                    case PickupTypeShotgun:
+                        state.pickupNotificationText = @"SHOTGUN ACQUIRED";
+                        break;
+                    case PickupTypeAssaultRifle:
+                        state.pickupNotificationText = @"ASSAULT RIFLE ACQUIRED";
+                        break;
+                    case PickupTypeRocketLauncher:
+                        state.pickupNotificationText = @"ROCKET LAUNCHER ACQUIRED";
+                        break;
+                    case PickupTypeArmor:
+                        state.pickupNotificationText = @"+50 ARMOR";
+                        break;
+                }
+            }
+        }
+
+        // Update pickup notification timer
+        if (state.pickupNotificationTimer > 0) {
+            state.pickupNotificationTimer--;
         }
 
         // Update timers
@@ -1235,12 +1300,360 @@
     [encoder setVertexBytes:&mvp length:sizeof(mvp) atIndex:1];
     [encoder drawPrimitives:MTLPrimitiveTypeLine vertexStart:0 vertexCount:_boxLineVertexCount];
 
-    // Draw PAUSED text
-    if (_metalView.escapedLock && !state.gameOver) {
-        [encoder setRenderPipelineState:_textPipelineState];
+    // Draw pause menu when paused
+    if (state.showPauseMenu && !state.gameOver) {
+        [encoder setRenderPipelineState:_bgPipelineState];
         [encoder setDepthStencilState:_bgDepthState];
-        [encoder setVertexBuffer:_textVertexBuffer offset:0 atIndex:0];
-        [encoder drawPrimitives:MTLPrimitiveTypeTriangle vertexStart:0 vertexCount:_textVertexCount];
+
+        #define MAX_PAUSE_MENU_VERTS 3000
+        Vertex pauseMenuVerts[MAX_PAUSE_MENU_VERTS];
+        int pmv = 0;
+
+        // Helper macro for menu quads
+        #define PAUSE_QUAD(x0,y0,x1,y1,col) do { \
+            pauseMenuVerts[pmv++] = (Vertex){{x0,y0,0},col}; \
+            pauseMenuVerts[pmv++] = (Vertex){{x1,y0,0},col}; \
+            pauseMenuVerts[pmv++] = (Vertex){{x1,y1,0},col}; \
+            pauseMenuVerts[pmv++] = (Vertex){{x0,y0,0},col}; \
+            pauseMenuVerts[pmv++] = (Vertex){{x1,y1,0},col}; \
+            pauseMenuVerts[pmv++] = (Vertex){{x0,y1,0},col}; \
+        } while(0)
+
+        // Colors
+        simd_float3 overlayColor = {0.0f, 0.0f, 0.0f};
+        simd_float3 panelColor = {0.12f, 0.12f, 0.18f};
+        simd_float3 borderColor = {0.4f, 0.35f, 0.2f};
+        simd_float3 buttonColor = {0.22f, 0.22f, 0.28f};
+        simd_float3 hoverColor = {0.32f, 0.32f, 0.42f};
+        simd_float3 accentColor = {1.0f, 0.85f, 0.0f};  // Gold
+        simd_float3 textColor = {0.95f, 0.95f, 0.95f};
+        simd_float3 dimTextColor = {0.7f, 0.7f, 0.75f};
+        simd_float3 sliderBgColor = {0.08f, 0.08f, 0.12f};
+        simd_float3 sliderFgColor = {0.25f, 0.65f, 0.35f};
+        simd_float3 knobColor = {0.9f, 0.9f, 0.95f};
+
+        // Semi-transparent background overlay
+        PAUSE_QUAD(-1.0f, -1.0f, 1.0f, 1.0f, overlayColor);
+
+        // Menu panel with border
+        float panelLeft = -0.52f;
+        float panelRight = 0.52f;
+        float panelTop = 0.52f;
+        float panelBottom = -0.38f;
+        float borderW = 0.008f;
+
+        // Panel border (gold accent)
+        PAUSE_QUAD(panelLeft - borderW, panelBottom - borderW, panelRight + borderW, panelTop + borderW, borderColor);
+        // Panel background
+        PAUSE_QUAD(panelLeft, panelBottom, panelRight, panelTop, panelColor);
+
+        // Menu title "PAUSED" text
+        float titleY = 0.38f;
+        float lw = 0.038f;
+        float lh = 0.07f;
+        float th = 0.009f;
+        float sp = 0.048f;
+        float startX = -0.13f;
+
+        // P
+        float x = startX;
+        PAUSE_QUAD(x, titleY, x+th, titleY+lh, accentColor);
+        PAUSE_QUAD(x, titleY+lh-th, x+lw, titleY+lh, accentColor);
+        PAUSE_QUAD(x+lw-th, titleY+lh*0.5f, x+lw, titleY+lh, accentColor);
+        PAUSE_QUAD(x, titleY+lh*0.5f-th*0.5f, x+lw, titleY+lh*0.5f+th*0.5f, accentColor);
+        // A
+        x += sp;
+        PAUSE_QUAD(x, titleY, x+th, titleY+lh, accentColor);
+        PAUSE_QUAD(x+lw-th, titleY, x+lw, titleY+lh, accentColor);
+        PAUSE_QUAD(x, titleY+lh-th, x+lw, titleY+lh, accentColor);
+        PAUSE_QUAD(x, titleY+lh*0.5f-th*0.5f, x+lw, titleY+lh*0.5f+th*0.5f, accentColor);
+        // U
+        x += sp;
+        PAUSE_QUAD(x, titleY, x+th, titleY+lh, accentColor);
+        PAUSE_QUAD(x+lw-th, titleY, x+lw, titleY+lh, accentColor);
+        PAUSE_QUAD(x, titleY, x+lw, titleY+th, accentColor);
+        // S
+        x += sp;
+        PAUSE_QUAD(x, titleY+lh-th, x+lw, titleY+lh, accentColor);
+        PAUSE_QUAD(x, titleY+lh*0.5f, x+th, titleY+lh, accentColor);
+        PAUSE_QUAD(x, titleY+lh*0.5f-th*0.5f, x+lw, titleY+lh*0.5f+th*0.5f, accentColor);
+        PAUSE_QUAD(x+lw-th, titleY, x+lw, titleY+lh*0.5f, accentColor);
+        PAUSE_QUAD(x, titleY, x+lw, titleY+th, accentColor);
+        // E
+        x += sp;
+        PAUSE_QUAD(x, titleY, x+th, titleY+lh, accentColor);
+        PAUSE_QUAD(x, titleY+lh-th, x+lw, titleY+lh, accentColor);
+        PAUSE_QUAD(x, titleY, x+lw, titleY+th, accentColor);
+        PAUSE_QUAD(x, titleY+lh*0.5f-th*0.5f, x+lw*0.7f, titleY+lh*0.5f+th*0.5f, accentColor);
+        // D
+        x += sp;
+        PAUSE_QUAD(x, titleY, x+th, titleY+lh, accentColor);
+        PAUSE_QUAD(x, titleY+lh-th, x+lw*0.7f, titleY+lh, accentColor);
+        PAUSE_QUAD(x, titleY, x+lw*0.7f, titleY+th, accentColor);
+        PAUSE_QUAD(x+lw-th, titleY+th, x+lw, titleY+lh-th, accentColor);
+
+        // Menu items layout
+        float itemHeight = 0.09f;
+        float menuTop = 0.28f;
+        float itemSpacing = 0.115f;
+        float itemLeft = -0.46f;
+        float itemRight = 0.46f;
+
+        // Slider layout
+        float sliderLeft = -0.38f;
+        float sliderRight = 0.38f;
+        float sliderHeight = 0.018f;
+
+        // Helper for drawing letters (compact inline)
+        #define LETTER_S(lx, ly, lh, lt, lw, c) do { \
+            PAUSE_QUAD(lx, ly+lh-lt, lx+lw, ly+lh, c); \
+            PAUSE_QUAD(lx, ly+lh*0.5f, lx+lt, ly+lh, c); \
+            PAUSE_QUAD(lx, ly+lh*0.45f, lx+lw, ly+lh*0.55f, c); \
+            PAUSE_QUAD(lx+lw-lt, ly, lx+lw, ly+lh*0.5f, c); \
+            PAUSE_QUAD(lx, ly, lx+lw, ly+lt, c); \
+        } while(0)
+
+        #define LETTER_E(lx, ly, lh, lt, lw, c) do { \
+            PAUSE_QUAD(lx, ly, lx+lt, ly+lh, c); \
+            PAUSE_QUAD(lx, ly+lh-lt, lx+lw, ly+lh, c); \
+            PAUSE_QUAD(lx, ly, lx+lw, ly+lt, c); \
+            PAUSE_QUAD(lx, ly+lh*0.45f, lx+lw*0.75f, ly+lh*0.55f, c); \
+        } while(0)
+
+        #define LETTER_N(lx, ly, lh, lt, lw, c) do { \
+            PAUSE_QUAD(lx, ly, lx+lt, ly+lh, c); \
+            PAUSE_QUAD(lx+lw-lt, ly, lx+lw, ly+lh, c); \
+            PAUSE_QUAD(lx, ly+lh-lt, lx+lw, ly+lh, c); \
+        } while(0)
+
+        #define LETTER_I(lx, ly, lh, lt, lw, c) do { \
+            PAUSE_QUAD(lx+lw*0.5f-lt*0.5f, ly, lx+lw*0.5f+lt*0.5f, ly+lh, c); \
+            PAUSE_QUAD(lx, ly, lx+lw, ly+lt, c); \
+            PAUSE_QUAD(lx, ly+lh-lt, lx+lw, ly+lh, c); \
+        } while(0)
+
+        #define LETTER_T(lx, ly, lh, lt, lw, c) do { \
+            PAUSE_QUAD(lx+lw*0.5f-lt*0.5f, ly, lx+lw*0.5f+lt*0.5f, ly+lh, c); \
+            PAUSE_QUAD(lx, ly+lh-lt, lx+lw, ly+lh, c); \
+        } while(0)
+
+        #define LETTER_V(lx, ly, lh, lt, lw, c) do { \
+            PAUSE_QUAD(lx, ly+lh*0.4f, lx+lt, ly+lh, c); \
+            PAUSE_QUAD(lx+lw-lt, ly+lh*0.4f, lx+lw, ly+lh, c); \
+            PAUSE_QUAD(lx+lw*0.5f-lt*0.6f, ly, lx+lw*0.5f+lt*0.6f, ly+lh*0.5f, c); \
+        } while(0)
+
+        #define LETTER_O(lx, ly, lh, lt, lw, c) do { \
+            PAUSE_QUAD(lx, ly, lx+lt, ly+lh, c); \
+            PAUSE_QUAD(lx+lw-lt, ly, lx+lw, ly+lh, c); \
+            PAUSE_QUAD(lx, ly+lh-lt, lx+lw, ly+lh, c); \
+            PAUSE_QUAD(lx, ly, lx+lw, ly+lt, c); \
+        } while(0)
+
+        #define LETTER_L(lx, ly, lh, lt, lw, c) do { \
+            PAUSE_QUAD(lx, ly, lx+lt, ly+lh, c); \
+            PAUSE_QUAD(lx, ly, lx+lw, ly+lt, c); \
+        } while(0)
+
+        #define LETTER_U(lx, ly, lh, lt, lw, c) do { \
+            PAUSE_QUAD(lx, ly, lx+lt, ly+lh, c); \
+            PAUSE_QUAD(lx+lw-lt, ly, lx+lw, ly+lh, c); \
+            PAUSE_QUAD(lx, ly, lx+lw, ly+lt, c); \
+        } while(0)
+
+        #define LETTER_M(lx, ly, lh, lt, lw, c) do { \
+            PAUSE_QUAD(lx, ly, lx+lt, ly+lh, c); \
+            PAUSE_QUAD(lx+lw-lt, ly, lx+lw, ly+lh, c); \
+            PAUSE_QUAD(lx, ly+lh-lt, lx+lw, ly+lh, c); \
+            PAUSE_QUAD(lx+lw*0.5f-lt*0.5f, ly+lh*0.4f, lx+lw*0.5f+lt*0.5f, ly+lh, c); \
+        } while(0)
+
+        #define LETTER_R(lx, ly, lh, lt, lw, c) do { \
+            PAUSE_QUAD(lx, ly, lx+lt, ly+lh, c); \
+            PAUSE_QUAD(lx, ly+lh-lt, lx+lw, ly+lh, c); \
+            PAUSE_QUAD(lx+lw-lt, ly+lh*0.5f, lx+lw, ly+lh, c); \
+            PAUSE_QUAD(lx, ly+lh*0.45f, lx+lw, ly+lh*0.55f, c); \
+            PAUSE_QUAD(lx+lw*0.4f, ly, lx+lw, ly+lh*0.45f, c); \
+        } while(0)
+
+        #define LETTER_A(lx, ly, lh, lt, lw, c) do { \
+            PAUSE_QUAD(lx, ly, lx+lt, ly+lh, c); \
+            PAUSE_QUAD(lx+lw-lt, ly, lx+lw, ly+lh, c); \
+            PAUSE_QUAD(lx, ly+lh-lt, lx+lw, ly+lh, c); \
+            PAUSE_QUAD(lx, ly+lh*0.45f, lx+lw, ly+lh*0.55f, c); \
+        } while(0)
+
+        #define LETTER_Y(lx, ly, lh, lt, lw, c) do { \
+            PAUSE_QUAD(lx, ly+lh*0.5f, lx+lt, ly+lh, c); \
+            PAUSE_QUAD(lx+lw-lt, ly+lh*0.5f, lx+lw, ly+lh, c); \
+            PAUSE_QUAD(lx+lw*0.5f-lt*0.5f, ly, lx+lw*0.5f+lt*0.5f, ly+lh*0.55f, c); \
+            PAUSE_QUAD(lx, ly+lh*0.45f, lx+lw*0.55f, ly+lh*0.55f, c); \
+            PAUSE_QUAD(lx+lw*0.45f, ly+lh*0.45f, lx+lw, ly+lh*0.55f, c); \
+        } while(0)
+
+        // Menu item 0: Resume
+        {
+            simd_float3 col = (state.pauseMenuSelection == 0) ? hoverColor : buttonColor;
+            float itemTop = menuTop;
+            float itemBottom = itemTop - itemHeight;
+            PAUSE_QUAD(itemLeft, itemBottom, itemRight, itemTop, col);
+
+            // "RESUME" text centered
+            float txtH = 0.032f;
+            float txtTh = 0.006f;
+            float txtLw = 0.022f;
+            float txtSp = 0.028f;
+            float txtY = itemBottom + (itemHeight - txtH) * 0.5f;
+            float txtX = -0.08f;
+
+            LETTER_R(txtX, txtY, txtH, txtTh, txtLw, textColor); txtX += txtSp;
+            LETTER_E(txtX, txtY, txtH, txtTh, txtLw, textColor); txtX += txtSp;
+            LETTER_S(txtX, txtY, txtH, txtTh, txtLw, textColor); txtX += txtSp;
+            LETTER_U(txtX, txtY, txtH, txtTh, txtLw, textColor); txtX += txtSp;
+            LETTER_M(txtX, txtY, txtH, txtTh, txtLw, textColor); txtX += txtSp;
+            LETTER_E(txtX, txtY, txtH, txtTh, txtLw, textColor);
+        }
+
+        // Menu item 1: Sensitivity with slider
+        {
+            simd_float3 col = (state.pauseMenuSelection == 1) ? hoverColor : buttonColor;
+            float itemTop = menuTop - 1 * itemSpacing;
+            float itemBottom = itemTop - itemHeight;
+            PAUSE_QUAD(itemLeft, itemBottom, itemRight, itemTop, col);
+
+            // "SENSITIVITY" label
+            float lblH = 0.022f;
+            float lblTh = 0.004f;
+            float lblLw = 0.014f;
+            float lblSp = 0.018f;
+            float lblY = itemTop - 0.032f;
+            float lblX = -0.13f;  // Start position for "SENSITIVITY"
+
+            LETTER_S(lblX, lblY, lblH, lblTh, lblLw, dimTextColor); lblX += lblSp;
+            LETTER_E(lblX, lblY, lblH, lblTh, lblLw, dimTextColor); lblX += lblSp;
+            LETTER_N(lblX, lblY, lblH, lblTh, lblLw, dimTextColor); lblX += lblSp;
+            LETTER_S(lblX, lblY, lblH, lblTh, lblLw, dimTextColor); lblX += lblSp;
+            LETTER_I(lblX, lblY, lblH, lblTh, lblLw, dimTextColor); lblX += lblSp;
+            LETTER_T(lblX, lblY, lblH, lblTh, lblLw, dimTextColor); lblX += lblSp;
+            LETTER_I(lblX, lblY, lblH, lblTh, lblLw, dimTextColor); lblX += lblSp;
+            LETTER_V(lblX, lblY, lblH, lblTh, lblLw, dimTextColor); lblX += lblSp;
+            LETTER_I(lblX, lblY, lblH, lblTh, lblLw, dimTextColor); lblX += lblSp;
+            LETTER_T(lblX, lblY, lblH, lblTh, lblLw, dimTextColor); lblX += lblSp;
+            LETTER_Y(lblX, lblY, lblH, lblTh, lblLw, dimTextColor);
+
+            // Slider track background
+            float sliderY = itemBottom + itemHeight * 0.22f;
+            PAUSE_QUAD(sliderLeft, sliderY, sliderRight, sliderY + sliderHeight, sliderBgColor);
+
+            // Slider fill
+            float sensNorm = (state.mouseSensitivity - 0.001f) / (0.02f - 0.001f);
+            if (sensNorm < 0) sensNorm = 0;
+            if (sensNorm > 1) sensNorm = 1;
+            float fillRight = sliderLeft + (sliderRight - sliderLeft) * sensNorm;
+            PAUSE_QUAD(sliderLeft, sliderY, fillRight, sliderY + sliderHeight, sliderFgColor);
+
+            // Slider knob (larger, rounded appearance with multiple quads)
+            float knobW = 0.025f;
+            float knobH = 0.035f;
+            float knobX = fillRight;
+            float knobY = sliderY + sliderHeight * 0.5f;
+            PAUSE_QUAD(knobX - knobW*0.5f, knobY - knobH*0.5f, knobX + knobW*0.5f, knobY + knobH*0.5f, knobColor);
+            // Knob highlight
+            simd_float3 knobHighlight = {1.0f, 1.0f, 1.0f};
+            PAUSE_QUAD(knobX - knobW*0.35f, knobY, knobX + knobW*0.35f, knobY + knobH*0.35f, knobHighlight);
+        }
+
+        // Menu item 2: Volume with slider
+        {
+            simd_float3 col = (state.pauseMenuSelection == 2) ? hoverColor : buttonColor;
+            float itemTop = menuTop - 2 * itemSpacing;
+            float itemBottom = itemTop - itemHeight;
+            PAUSE_QUAD(itemLeft, itemBottom, itemRight, itemTop, col);
+
+            // "VOLUME" label
+            float lblH = 0.022f;
+            float lblTh = 0.004f;
+            float lblLw = 0.014f;
+            float lblSp = 0.018f;
+            float lblY = itemTop - 0.032f;
+            float lblX = -0.06f;  // Centered for "VOLUME"
+
+            LETTER_V(lblX, lblY, lblH, lblTh, lblLw, dimTextColor); lblX += lblSp;
+            LETTER_O(lblX, lblY, lblH, lblTh, lblLw, dimTextColor); lblX += lblSp;
+            LETTER_L(lblX, lblY, lblH, lblTh, lblLw, dimTextColor); lblX += lblSp;
+            LETTER_U(lblX, lblY, lblH, lblTh, lblLw, dimTextColor); lblX += lblSp;
+            LETTER_M(lblX, lblY, lblH, lblTh, lblLw, dimTextColor); lblX += lblSp;
+            LETTER_E(lblX, lblY, lblH, lblTh, lblLw, dimTextColor);
+
+            // Slider track background
+            float sliderY = itemBottom + itemHeight * 0.22f;
+            PAUSE_QUAD(sliderLeft, sliderY, sliderRight, sliderY + sliderHeight, sliderBgColor);
+
+            // Slider fill
+            float volNorm = state.masterVolume;
+            if (volNorm < 0) volNorm = 0;
+            if (volNorm > 1) volNorm = 1;
+            float fillRight = sliderLeft + (sliderRight - sliderLeft) * volNorm;
+            PAUSE_QUAD(sliderLeft, sliderY, fillRight, sliderY + sliderHeight, sliderFgColor);
+
+            // Slider knob
+            float knobW = 0.025f;
+            float knobH = 0.035f;
+            float knobX = fillRight;
+            float knobY = sliderY + sliderHeight * 0.5f;
+            PAUSE_QUAD(knobX - knobW*0.5f, knobY - knobH*0.5f, knobX + knobW*0.5f, knobY + knobH*0.5f, knobColor);
+            simd_float3 knobHighlight = {1.0f, 1.0f, 1.0f};
+            PAUSE_QUAD(knobX - knobW*0.35f, knobY, knobX + knobW*0.35f, knobY + knobH*0.35f, knobHighlight);
+        }
+
+        // Menu item 3: Main Menu
+        {
+            simd_float3 col = (state.pauseMenuSelection == 3) ? hoverColor : buttonColor;
+            float itemTop = menuTop - 3 * itemSpacing;
+            float itemBottom = itemTop - itemHeight;
+            PAUSE_QUAD(itemLeft, itemBottom, itemRight, itemTop, col);
+
+            // "MAIN MENU" text centered
+            float txtH = 0.032f;
+            float txtTh = 0.006f;
+            float txtLw = 0.022f;
+            float txtSp = 0.028f;
+            float txtY = itemBottom + (itemHeight - txtH) * 0.5f;
+            float txtX = -0.14f;
+
+            LETTER_M(txtX, txtY, txtH, txtTh, txtLw, textColor); txtX += txtSp;
+            LETTER_A(txtX, txtY, txtH, txtTh, txtLw, textColor); txtX += txtSp;
+            LETTER_I(txtX, txtY, txtH, txtTh, txtLw, textColor); txtX += txtSp;
+            LETTER_N(txtX, txtY, txtH, txtTh, txtLw, textColor); txtX += txtSp * 1.3f;
+            LETTER_M(txtX, txtY, txtH, txtTh, txtLw, textColor); txtX += txtSp;
+            LETTER_E(txtX, txtY, txtH, txtTh, txtLw, textColor); txtX += txtSp;
+            LETTER_N(txtX, txtY, txtH, txtTh, txtLw, textColor); txtX += txtSp;
+            LETTER_U(txtX, txtY, txtH, txtTh, txtLw, textColor);
+        }
+
+        // Cleanup macros
+        #undef PAUSE_QUAD
+        #undef LETTER_S
+        #undef LETTER_E
+        #undef LETTER_N
+        #undef LETTER_I
+        #undef LETTER_T
+        #undef LETTER_V
+        #undef LETTER_O
+        #undef LETTER_L
+        #undef LETTER_U
+        #undef LETTER_M
+        #undef LETTER_R
+        #undef LETTER_A
+        #undef LETTER_Y
+
+        // Render pause menu
+        id<MTLBuffer> pauseMenuBuffer = [_device newBufferWithBytes:pauseMenuVerts length:sizeof(Vertex)*pmv options:MTLResourceStorageModeShared];
+        [encoder setVertexBuffer:pauseMenuBuffer offset:0 atIndex:0];
+        [encoder setVertexBytes:&IDENTITY_MATRIX length:sizeof(IDENTITY_MATRIX) atIndex:1];
+        [encoder drawPrimitives:MTLPrimitiveTypeTriangle vertexStart:0 vertexCount:pmv];
+
+        #undef MAX_PAUSE_MENU_VERTS
     }
 
     // Draw player health bar
@@ -1292,6 +1705,263 @@
         [encoder setVertexBuffer:_crosshairBuffer offset:0 atIndex:0];
         [encoder setVertexBytes:&IDENTITY_MATRIX length:sizeof(IDENTITY_MATRIX) atIndex:1];
         [encoder drawPrimitives:MTLPrimitiveTypeTriangle vertexStart:0 vertexCount:24];
+    }
+
+    // ============================================
+    // WEAPON & AMMO HUD
+    // ============================================
+    if (!state.gameOver && !_metalView.escapedLock) {
+        #define MAX_AMMO_HUD_VERTS 2000
+        Vertex ammoHudVerts[MAX_AMMO_HUD_VERTS];
+        int ahv = 0;
+
+        #define HUD_QUAD(x0,y0,x1,y1,col) do { \
+            ammoHudVerts[ahv++] = (Vertex){{x0,y0,0},col}; \
+            ammoHudVerts[ahv++] = (Vertex){{x1,y0,0},col}; \
+            ammoHudVerts[ahv++] = (Vertex){{x1,y1,0},col}; \
+            ammoHudVerts[ahv++] = (Vertex){{x0,y0,0},col}; \
+            ammoHudVerts[ahv++] = (Vertex){{x1,y1,0},col}; \
+            ammoHudVerts[ahv++] = (Vertex){{x0,y1,0},col}; \
+        } while(0)
+
+        // Colors
+        simd_float3 white = {1.0f, 1.0f, 1.0f};
+        simd_float3 gold = {1.0f, 0.85f, 0.0f};
+        simd_float3 dimWhite = {0.7f, 0.7f, 0.7f};
+        simd_float3 darkBg = {0.1f, 0.1f, 0.15f};
+        simd_float3 slotBg = {0.2f, 0.2f, 0.25f};
+        simd_float3 red = {1.0f, 0.3f, 0.3f};
+        simd_float3 green = {0.3f, 1.0f, 0.3f};
+
+        WeaponSystem *ws = [WeaponSystem shared];
+        WeaponType currentWeapon = [ws getCurrentWeapon];
+        int currentAmmo = [ws getCurrentAmmo];
+        int reserveAmmo = [ws getReserveAmmo];
+
+        // ---- WEAPON SLOTS (bottom-middle) ----
+        float slotW = 0.18f;
+        float slotH = 0.07f;
+        float slotGap = 0.01f;
+        float totalWidth = 4 * slotW + 3 * slotGap;
+        float slotStartX = -totalWidth / 2.0f;
+        float slotY = -0.98f;
+
+        // Letter rendering dimensions for weapon names
+        float lh = 0.035f;
+        float lt = 0.005f;
+        float lw = 0.018f;
+        float lsp = 0.022f;
+
+        for (int w = 0; w < 4; w++) {
+            float sx = slotStartX + w * (slotW + slotGap);
+            BOOL hasWeapon = (w == 0) || (w == 1 && state.hasWeaponShotgun) ||
+                             (w == 2 && state.hasWeaponAssaultRifle) || (w == 3 && state.hasWeaponRocketLauncher);
+            BOOL isSelected = (w == (int)currentWeapon);
+
+            // Slot background - grey if no weapon, highlighted if selected
+            simd_float3 bg = isSelected ? gold : (hasWeapon ? slotBg : darkBg);
+            HUD_QUAD(sx, slotY, sx + slotW, slotY + slotH, bg);
+
+            // Text color
+            simd_float3 txtCol = isSelected ? darkBg : (hasWeapon ? white : dimWhite);
+
+            // Draw weapon name or number
+            const char *name = NULL;
+            if (hasWeapon) {
+                switch (w) {
+                    case 0: name = "PISTOL"; break;
+                    case 1: name = "SHOTGUN"; break;
+                    case 2: name = "RIFLE"; break;
+                    case 3: name = "ROCKET"; break;
+                }
+            } else {
+                switch (w) {
+                    case 0: name = "1"; break;
+                    case 1: name = "2"; break;
+                    case 2: name = "3"; break;
+                    case 3: name = "4"; break;
+                }
+            }
+
+            // Calculate text centering
+            int nameLen = (int)strlen(name);
+            float textWidth = nameLen * lsp;
+            float lx = sx + (slotW - textWidth) / 2.0f;
+            float ly = slotY + (slotH - lh) / 2.0f;
+
+            // Render each character
+            for (int c = 0; c < nameLen; c++) {
+                char ch = name[c];
+                if (ch >= '1' && ch <= '4') {
+                    // Draw numbers
+                    float nw = lw;
+                    float nh = lh;
+                    float nt = lt;
+                    if (ch == '1') { HUD_QUAD(lx + nw*0.5f - nt*0.5f, ly, lx + nw*0.5f + nt*0.5f, ly + nh, txtCol); }
+                    else if (ch == '2') { HUD_QUAD(lx, ly + nh - nt, lx + nw, ly + nh, txtCol); HUD_QUAD(lx + nw - nt, ly + nh*0.5f, lx + nw, ly + nh, txtCol); HUD_QUAD(lx, ly + nh*0.45f, lx + nw, ly + nh*0.55f, txtCol); HUD_QUAD(lx, ly, lx + nt, ly + nh*0.5f, txtCol); HUD_QUAD(lx, ly, lx + nw, ly + nt, txtCol); }
+                    else if (ch == '3') { HUD_QUAD(lx, ly + nh - nt, lx + nw, ly + nh, txtCol); HUD_QUAD(lx + nw - nt, ly, lx + nw, ly + nh, txtCol); HUD_QUAD(lx, ly + nh*0.45f, lx + nw, ly + nh*0.55f, txtCol); HUD_QUAD(lx, ly, lx + nw, ly + nt, txtCol); }
+                    else if (ch == '4') { HUD_QUAD(lx, ly + nh*0.5f, lx + nt, ly + nh, txtCol); HUD_QUAD(lx + nw - nt, ly, lx + nw, ly + nh, txtCol); HUD_QUAD(lx, ly + nh*0.45f, lx + nw, ly + nh*0.55f, txtCol); }
+                } else {
+                    // Draw letters
+                    switch (ch) {
+                        case 'P': HUD_QUAD(lx, ly, lx + lt, ly + lh, txtCol); HUD_QUAD(lx, ly + lh - lt, lx + lw, ly + lh, txtCol); HUD_QUAD(lx + lw - lt, ly + lh*0.5f, lx + lw, ly + lh, txtCol); HUD_QUAD(lx, ly + lh*0.45f, lx + lw, ly + lh*0.55f, txtCol); break;
+                        case 'I': HUD_QUAD(lx + lw*0.5f - lt*0.5f, ly, lx + lw*0.5f + lt*0.5f, ly + lh, txtCol); HUD_QUAD(lx, ly + lh - lt, lx + lw, ly + lh, txtCol); HUD_QUAD(lx, ly, lx + lw, ly + lt, txtCol); break;
+                        case 'S': HUD_QUAD(lx, ly + lh - lt, lx + lw, ly + lh, txtCol); HUD_QUAD(lx, ly + lh*0.5f, lx + lt, ly + lh, txtCol); HUD_QUAD(lx, ly + lh*0.45f, lx + lw, ly + lh*0.55f, txtCol); HUD_QUAD(lx + lw - lt, ly, lx + lw, ly + lh*0.5f, txtCol); HUD_QUAD(lx, ly, lx + lw, ly + lt, txtCol); break;
+                        case 'T': HUD_QUAD(lx + lw*0.5f - lt*0.5f, ly, lx + lw*0.5f + lt*0.5f, ly + lh, txtCol); HUD_QUAD(lx, ly + lh - lt, lx + lw, ly + lh, txtCol); break;
+                        case 'O': HUD_QUAD(lx, ly, lx + lt, ly + lh, txtCol); HUD_QUAD(lx + lw - lt, ly, lx + lw, ly + lh, txtCol); HUD_QUAD(lx, ly + lh - lt, lx + lw, ly + lh, txtCol); HUD_QUAD(lx, ly, lx + lw, ly + lt, txtCol); break;
+                        case 'L': HUD_QUAD(lx, ly, lx + lt, ly + lh, txtCol); HUD_QUAD(lx, ly, lx + lw, ly + lt, txtCol); break;
+                        case 'H': HUD_QUAD(lx, ly, lx + lt, ly + lh, txtCol); HUD_QUAD(lx + lw - lt, ly, lx + lw, ly + lh, txtCol); HUD_QUAD(lx, ly + lh*0.45f, lx + lw, ly + lh*0.55f, txtCol); break;
+                        case 'G': HUD_QUAD(lx, ly, lx + lt, ly + lh, txtCol); HUD_QUAD(lx, ly + lh - lt, lx + lw, ly + lh, txtCol); HUD_QUAD(lx, ly, lx + lw, ly + lt, txtCol); HUD_QUAD(lx + lw - lt, ly, lx + lw, ly + lh*0.55f, txtCol); HUD_QUAD(lx + lw*0.5f, ly + lh*0.45f, lx + lw, ly + lh*0.55f, txtCol); break;
+                        case 'U': HUD_QUAD(lx, ly, lx + lt, ly + lh, txtCol); HUD_QUAD(lx + lw - lt, ly, lx + lw, ly + lh, txtCol); HUD_QUAD(lx, ly, lx + lw, ly + lt, txtCol); break;
+                        case 'N': HUD_QUAD(lx, ly, lx + lt, ly + lh, txtCol); HUD_QUAD(lx + lw - lt, ly, lx + lw, ly + lh, txtCol); HUD_QUAD(lx, ly + lh - lt, lx + lw, ly + lh, txtCol); break;
+                        case 'R': HUD_QUAD(lx, ly, lx + lt, ly + lh, txtCol); HUD_QUAD(lx, ly + lh - lt, lx + lw, ly + lh, txtCol); HUD_QUAD(lx + lw - lt, ly + lh*0.5f, lx + lw, ly + lh, txtCol); HUD_QUAD(lx, ly + lh*0.45f, lx + lw, ly + lh*0.55f, txtCol); HUD_QUAD(lx + lw*0.5f, ly, lx + lw, ly + lh*0.5f, txtCol); break;
+                        case 'F': HUD_QUAD(lx, ly, lx + lt, ly + lh, txtCol); HUD_QUAD(lx, ly + lh - lt, lx + lw, ly + lh, txtCol); HUD_QUAD(lx, ly + lh*0.45f, lx + lw*0.8f, ly + lh*0.55f, txtCol); break;
+                        case 'E': HUD_QUAD(lx, ly, lx + lt, ly + lh, txtCol); HUD_QUAD(lx, ly + lh - lt, lx + lw, ly + lh, txtCol); HUD_QUAD(lx, ly + lh*0.45f, lx + lw*0.7f, ly + lh*0.55f, txtCol); HUD_QUAD(lx, ly, lx + lw, ly + lt, txtCol); break;
+                        case 'C': HUD_QUAD(lx, ly, lx + lt, ly + lh, txtCol); HUD_QUAD(lx, ly + lh - lt, lx + lw, ly + lh, txtCol); HUD_QUAD(lx, ly, lx + lw, ly + lt, txtCol); break;
+                        case 'K': HUD_QUAD(lx, ly, lx + lt, ly + lh, txtCol); HUD_QUAD(lx + lt, ly + lh*0.45f, lx + lw, ly + lh, txtCol); HUD_QUAD(lx + lt, ly, lx + lw, ly + lh*0.55f, txtCol); break;
+                        case 'A': HUD_QUAD(lx, ly, lx + lt, ly + lh, txtCol); HUD_QUAD(lx + lw - lt, ly, lx + lw, ly + lh, txtCol); HUD_QUAD(lx, ly + lh - lt, lx + lw, ly + lh, txtCol); HUD_QUAD(lx, ly + lh*0.45f, lx + lw, ly + lh*0.55f, txtCol); break;
+                    }
+                }
+                lx += lsp;
+            }
+        }
+
+        // ---- AMMO DISPLAY (bottom-left) ----
+        float ammoX = -0.85f;
+        float ammoY = -0.55f;
+        float ammoW = 0.4f;
+        float ammoH = 0.12f;
+
+        // Background
+        HUD_QUAD(ammoX, ammoY, ammoX + ammoW, ammoY + ammoH, darkBg);
+
+        // Large digit rendering
+        float dh = 0.08f;   // digit height
+        float dw = 0.045f;  // digit width
+        float dt = 0.01f;   // line thickness
+        float ds = 0.055f;  // spacing
+
+        #define DIGIT(d, px, py, c) do { \
+            if (d == 0) { HUD_QUAD(px, py, px+dt, py+dh, c); HUD_QUAD(px+dw-dt, py, px+dw, py+dh, c); HUD_QUAD(px, py+dh-dt, px+dw, py+dh, c); HUD_QUAD(px, py, px+dw, py+dt, c); } \
+            else if (d == 1) { HUD_QUAD(px+dw*0.5f-dt*0.5f, py, px+dw*0.5f+dt*0.5f, py+dh, c); } \
+            else if (d == 2) { HUD_QUAD(px, py+dh-dt, px+dw, py+dh, c); HUD_QUAD(px+dw-dt, py+dh*0.5f, px+dw, py+dh, c); HUD_QUAD(px, py+dh*0.45f, px+dw, py+dh*0.55f, c); HUD_QUAD(px, py, px+dt, py+dh*0.5f, c); HUD_QUAD(px, py, px+dw, py+dt, c); } \
+            else if (d == 3) { HUD_QUAD(px, py+dh-dt, px+dw, py+dh, c); HUD_QUAD(px+dw-dt, py, px+dw, py+dh, c); HUD_QUAD(px, py+dh*0.45f, px+dw, py+dh*0.55f, c); HUD_QUAD(px, py, px+dw, py+dt, c); } \
+            else if (d == 4) { HUD_QUAD(px, py+dh*0.5f, px+dt, py+dh, c); HUD_QUAD(px+dw-dt, py, px+dw, py+dh, c); HUD_QUAD(px, py+dh*0.45f, px+dw, py+dh*0.55f, c); } \
+            else if (d == 5) { HUD_QUAD(px, py+dh-dt, px+dw, py+dh, c); HUD_QUAD(px, py+dh*0.5f, px+dt, py+dh, c); HUD_QUAD(px, py+dh*0.45f, px+dw, py+dh*0.55f, c); HUD_QUAD(px+dw-dt, py, px+dw, py+dh*0.5f, c); HUD_QUAD(px, py, px+dw, py+dt, c); } \
+            else if (d == 6) { HUD_QUAD(px, py, px+dt, py+dh, c); HUD_QUAD(px, py+dh-dt, px+dw, py+dh, c); HUD_QUAD(px, py+dh*0.45f, px+dw, py+dh*0.55f, c); HUD_QUAD(px+dw-dt, py, px+dw, py+dh*0.5f, c); HUD_QUAD(px, py, px+dw, py+dt, c); } \
+            else if (d == 7) { HUD_QUAD(px, py+dh-dt, px+dw, py+dh, c); HUD_QUAD(px+dw-dt, py, px+dw, py+dh, c); } \
+            else if (d == 8) { HUD_QUAD(px, py, px+dt, py+dh, c); HUD_QUAD(px+dw-dt, py, px+dw, py+dh, c); HUD_QUAD(px, py+dh-dt, px+dw, py+dh, c); HUD_QUAD(px, py+dh*0.45f, px+dw, py+dh*0.55f, c); HUD_QUAD(px, py, px+dw, py+dt, c); } \
+            else if (d == 9) { HUD_QUAD(px, py+dh*0.5f, px+dt, py+dh, c); HUD_QUAD(px+dw-dt, py, px+dw, py+dh, c); HUD_QUAD(px, py+dh-dt, px+dw, py+dh, c); HUD_QUAD(px, py+dh*0.45f, px+dw, py+dh*0.55f, c); HUD_QUAD(px, py, px+dw, py+dt, c); } \
+        } while(0)
+
+        float dx = ammoX + 0.02f;
+        float dy = ammoY + 0.02f;
+        simd_float3 ammoCol = (currentAmmo <= 5 && currentWeapon != WeaponTypePistol) ? red : white;
+
+        if (currentWeapon == WeaponTypePistol) {
+            // INF
+            HUD_QUAD(dx + dw*0.5f - dt*0.5f, dy, dx + dw*0.5f + dt*0.5f, dy + dh, gold);
+            HUD_QUAD(dx, dy, dx + dw, dy + dt, gold);
+            HUD_QUAD(dx, dy + dh - dt, dx + dw, dy + dh, gold);
+            dx += ds;
+            HUD_QUAD(dx, dy, dx + dt, dy + dh, gold);
+            HUD_QUAD(dx + dw - dt, dy, dx + dw, dy + dh, gold);
+            HUD_QUAD(dx, dy + dh - dt, dx + dw, dy + dh, gold);
+            dx += ds;
+            HUD_QUAD(dx, dy, dx + dt, dy + dh, gold);
+            HUD_QUAD(dx, dy + dh - dt, dx + dw, dy + dh, gold);
+            HUD_QUAD(dx, dy + dh*0.45f, dx + dw*0.7f, dy + dh*0.55f, gold);
+        } else {
+            // Current ammo (always show 2 digits minimum)
+            int ca = currentAmmo;
+            if (ca >= 100) { DIGIT(ca / 100, dx, dy, ammoCol); dx += ds; }
+            DIGIT((ca / 10) % 10, dx, dy, ammoCol); dx += ds;
+            DIGIT(ca % 10, dx, dy, ammoCol); dx += ds;
+
+            // Slash
+            HUD_QUAD(dx + dw*0.25f, dy, dx + dw*0.75f, dy + dh, dimWhite);
+            dx += ds;
+
+            // Reserve ammo
+            int ra = reserveAmmo;
+            if (ra >= 100) { DIGIT(ra / 100, dx, dy, dimWhite); dx += ds; }
+            DIGIT((ra / 10) % 10, dx, dy, dimWhite); dx += ds;
+            DIGIT(ra % 10, dx, dy, dimWhite);
+        }
+
+        #undef DIGIT
+
+        // ---- PICKUP NOTIFICATION (center screen) ----
+        if (state.pickupNotificationTimer > 0 && state.pickupNotificationText) {
+            float alpha = (state.pickupNotificationTimer > 60) ? 1.0f : (state.pickupNotificationTimer / 60.0f);
+            simd_float3 notifyBg = {0.0f, 0.0f, 0.0f};
+            simd_float3 notifyText = {alpha * 0.3f, alpha * 1.0f, alpha * 0.3f};
+
+            float ny = 0.5f;
+            float nh = 0.08f;
+
+            // Background bar
+            HUD_QUAD(-0.45f, ny, 0.45f, ny + nh, notifyBg);
+
+            // Render notification text
+            float lh = 0.05f;
+            float lt = 0.007f;
+            float lw = 0.028f;
+            float lsp = 0.035f;
+
+            NSString *text = state.pickupNotificationText;
+            float textWidth = [text length] * lsp;
+            float lx = -textWidth * 0.5f;
+            float ly = ny + (nh - lh) * 0.5f;
+
+            for (int i = 0; i < [text length] && i < 25; i++) {
+                unichar c = [text characterAtIndex:i];
+                if (c == ' ') { lx += lsp * 0.6f; continue; }
+                if (c == '+') { HUD_QUAD(lx + lw*0.1f, ly + lh*0.4f, lx + lw*0.9f, ly + lh*0.6f, notifyText); HUD_QUAD(lx + lw*0.4f, ly + lh*0.1f, lx + lw*0.6f, ly + lh*0.9f, notifyText); lx += lsp; continue; }
+                if (c >= '0' && c <= '9') {
+                    int d = c - '0';
+                    if (d == 0) { HUD_QUAD(lx, ly, lx+lt, ly+lh, notifyText); HUD_QUAD(lx+lw-lt, ly, lx+lw, ly+lh, notifyText); HUD_QUAD(lx, ly+lh-lt, lx+lw, ly+lh, notifyText); HUD_QUAD(lx, ly, lx+lw, ly+lt, notifyText); }
+                    else if (d == 1) { HUD_QUAD(lx+lw*0.5f-lt*0.5f, ly, lx+lw*0.5f+lt*0.5f, ly+lh, notifyText); }
+                    else if (d == 5) { HUD_QUAD(lx, ly+lh-lt, lx+lw, ly+lh, notifyText); HUD_QUAD(lx, ly+lh*0.5f, lx+lt, ly+lh, notifyText); HUD_QUAD(lx, ly+lh*0.45f, lx+lw, ly+lh*0.55f, notifyText); HUD_QUAD(lx+lw-lt, ly, lx+lw, ly+lh*0.5f, notifyText); HUD_QUAD(lx, ly, lx+lw, ly+lt, notifyText); }
+                    lx += lsp; continue;
+                }
+                // Letters
+                if (c == 'A') { HUD_QUAD(lx, ly, lx+lt, ly+lh, notifyText); HUD_QUAD(lx+lw-lt, ly, lx+lw, ly+lh, notifyText); HUD_QUAD(lx, ly+lh-lt, lx+lw, ly+lh, notifyText); HUD_QUAD(lx, ly+lh*0.45f, lx+lw, ly+lh*0.55f, notifyText); }
+                else if (c == 'C') { HUD_QUAD(lx, ly, lx+lt, ly+lh, notifyText); HUD_QUAD(lx, ly+lh-lt, lx+lw, ly+lh, notifyText); HUD_QUAD(lx, ly, lx+lw, ly+lt, notifyText); }
+                else if (c == 'D') { HUD_QUAD(lx, ly, lx+lt, ly+lh, notifyText); HUD_QUAD(lx, ly+lh-lt, lx+lw*0.7f, ly+lh, notifyText); HUD_QUAD(lx, ly, lx+lw*0.7f, ly+lt, notifyText); HUD_QUAD(lx+lw-lt, ly+lt, lx+lw, ly+lh-lt, notifyText); }
+                else if (c == 'E') { HUD_QUAD(lx, ly, lx+lt, ly+lh, notifyText); HUD_QUAD(lx, ly+lh-lt, lx+lw, ly+lh, notifyText); HUD_QUAD(lx, ly, lx+lw, ly+lt, notifyText); HUD_QUAD(lx, ly+lh*0.45f, lx+lw*0.7f, ly+lh*0.55f, notifyText); }
+                else if (c == 'F') { HUD_QUAD(lx, ly, lx+lt, ly+lh, notifyText); HUD_QUAD(lx, ly+lh-lt, lx+lw, ly+lh, notifyText); HUD_QUAD(lx, ly+lh*0.45f, lx+lw*0.7f, ly+lh*0.55f, notifyText); }
+                else if (c == 'G') { HUD_QUAD(lx, ly, lx+lt, ly+lh, notifyText); HUD_QUAD(lx, ly+lh-lt, lx+lw, ly+lh, notifyText); HUD_QUAD(lx, ly, lx+lw, ly+lt, notifyText); HUD_QUAD(lx+lw-lt, ly, lx+lw, ly+lh*0.5f, notifyText); HUD_QUAD(lx+lw*0.5f, ly+lh*0.45f, lx+lw, ly+lh*0.55f, notifyText); }
+                else if (c == 'H') { HUD_QUAD(lx, ly, lx+lt, ly+lh, notifyText); HUD_QUAD(lx+lw-lt, ly, lx+lw, ly+lh, notifyText); HUD_QUAD(lx, ly+lh*0.45f, lx+lw, ly+lh*0.55f, notifyText); }
+                else if (c == 'I') { HUD_QUAD(lx+lw*0.5f-lt*0.5f, ly, lx+lw*0.5f+lt*0.5f, ly+lh, notifyText); HUD_QUAD(lx, ly, lx+lw, ly+lt, notifyText); HUD_QUAD(lx, ly+lh-lt, lx+lw, ly+lh, notifyText); }
+                else if (c == 'K') { HUD_QUAD(lx, ly, lx+lt, ly+lh, notifyText); HUD_QUAD(lx, ly+lh*0.45f, lx+lw*0.5f, ly+lh*0.55f, notifyText); HUD_QUAD(lx+lw*0.4f, ly+lh*0.5f, lx+lw, ly+lh, notifyText); HUD_QUAD(lx+lw*0.4f, ly, lx+lw, ly+lh*0.5f, notifyText); }
+                else if (c == 'L') { HUD_QUAD(lx, ly, lx+lt, ly+lh, notifyText); HUD_QUAD(lx, ly, lx+lw, ly+lt, notifyText); }
+                else if (c == 'M') { HUD_QUAD(lx, ly, lx+lt, ly+lh, notifyText); HUD_QUAD(lx+lw-lt, ly, lx+lw, ly+lh, notifyText); HUD_QUAD(lx, ly+lh-lt, lx+lw, ly+lh, notifyText); HUD_QUAD(lx+lw*0.5f-lt*0.5f, ly+lh*0.4f, lx+lw*0.5f+lt*0.5f, ly+lh, notifyText); }
+                else if (c == 'N') { HUD_QUAD(lx, ly, lx+lt, ly+lh, notifyText); HUD_QUAD(lx+lw-lt, ly, lx+lw, ly+lh, notifyText); HUD_QUAD(lx, ly+lh-lt, lx+lw, ly+lh, notifyText); }
+                else if (c == 'O') { HUD_QUAD(lx, ly, lx+lt, ly+lh, notifyText); HUD_QUAD(lx+lw-lt, ly, lx+lw, ly+lh, notifyText); HUD_QUAD(lx, ly+lh-lt, lx+lw, ly+lh, notifyText); HUD_QUAD(lx, ly, lx+lw, ly+lt, notifyText); }
+                else if (c == 'Q') { HUD_QUAD(lx, ly, lx+lt, ly+lh, notifyText); HUD_QUAD(lx+lw-lt, ly, lx+lw, ly+lh, notifyText); HUD_QUAD(lx, ly+lh-lt, lx+lw, ly+lh, notifyText); HUD_QUAD(lx, ly, lx+lw, ly+lt, notifyText); HUD_QUAD(lx+lw*0.5f, ly, lx+lw, ly+lh*0.3f, notifyText); }
+                else if (c == 'R') { HUD_QUAD(lx, ly, lx+lt, ly+lh, notifyText); HUD_QUAD(lx, ly+lh-lt, lx+lw, ly+lh, notifyText); HUD_QUAD(lx+lw-lt, ly+lh*0.5f, lx+lw, ly+lh, notifyText); HUD_QUAD(lx, ly+lh*0.45f, lx+lw, ly+lh*0.55f, notifyText); HUD_QUAD(lx+lw*0.4f, ly, lx+lw, ly+lh*0.45f, notifyText); }
+                else if (c == 'S') { HUD_QUAD(lx, ly+lh-lt, lx+lw, ly+lh, notifyText); HUD_QUAD(lx, ly+lh*0.5f, lx+lt, ly+lh, notifyText); HUD_QUAD(lx, ly+lh*0.45f, lx+lw, ly+lh*0.55f, notifyText); HUD_QUAD(lx+lw-lt, ly, lx+lw, ly+lh*0.5f, notifyText); HUD_QUAD(lx, ly, lx+lw, ly+lt, notifyText); }
+                else if (c == 'T') { HUD_QUAD(lx+lw*0.5f-lt*0.5f, ly, lx+lw*0.5f+lt*0.5f, ly+lh, notifyText); HUD_QUAD(lx, ly+lh-lt, lx+lw, ly+lh, notifyText); }
+                else if (c == 'U') { HUD_QUAD(lx, ly, lx+lt, ly+lh, notifyText); HUD_QUAD(lx+lw-lt, ly, lx+lw, ly+lh, notifyText); HUD_QUAD(lx, ly, lx+lw, ly+lt, notifyText); }
+                else if (c == 'V') { HUD_QUAD(lx, ly+lh*0.4f, lx+lt, ly+lh, notifyText); HUD_QUAD(lx+lw-lt, ly+lh*0.4f, lx+lw, ly+lh, notifyText); HUD_QUAD(lx+lw*0.5f-lt*0.5f, ly, lx+lw*0.5f+lt*0.5f, ly+lh*0.5f, notifyText); }
+                else if (c == 'W') { HUD_QUAD(lx, ly, lx+lt, ly+lh, notifyText); HUD_QUAD(lx+lw-lt, ly, lx+lw, ly+lh, notifyText); HUD_QUAD(lx, ly, lx+lw, ly+lt, notifyText); HUD_QUAD(lx+lw*0.5f-lt*0.5f, ly, lx+lw*0.5f+lt*0.5f, ly+lh*0.5f, notifyText); }
+                else if (c == 'Y') { HUD_QUAD(lx, ly+lh*0.5f, lx+lt, ly+lh, notifyText); HUD_QUAD(lx+lw-lt, ly+lh*0.5f, lx+lw, ly+lh, notifyText); HUD_QUAD(lx+lw*0.5f-lt*0.5f, ly, lx+lw*0.5f+lt*0.5f, ly+lh*0.55f, notifyText); HUD_QUAD(lx, ly+lh*0.45f, lx+lw*0.55f, ly+lh*0.55f, notifyText); HUD_QUAD(lx+lw*0.45f, ly+lh*0.45f, lx+lw, ly+lh*0.55f, notifyText); }
+                lx += lsp;
+            }
+        }
+
+        #undef HUD_QUAD
+
+        // Render HUD
+        id<MTLBuffer> ammoHudBuffer = [_device newBufferWithBytes:ammoHudVerts length:sizeof(Vertex)*ahv options:MTLResourceStorageModeShared];
+        [encoder setRenderPipelineState:_bgPipelineState];
+        [encoder setDepthStencilState:_bgDepthState];
+        [encoder setVertexBuffer:ammoHudBuffer offset:0 atIndex:0];
+        [encoder setVertexBytes:&IDENTITY_MATRIX length:sizeof(IDENTITY_MATRIX) atIndex:1];
+        [encoder drawPrimitives:MTLPrimitiveTypeTriangle vertexStart:0 vertexCount:ahv];
+
+        #undef MAX_AMMO_HUD_VERTS
     }
 
     // ============================================
@@ -2019,8 +2689,8 @@
         }
     }
 
-    // Draw gun
-    {
+    // Draw gun (hide when pause menu is shown)
+    if (!state.showPauseMenu) {
         float tiltX = -0.1f, tiltY = -0.45f;
         float cosTiltX = cosf(tiltX), sinTiltX = sinf(tiltX);
         float cosTiltY = cosf(tiltY), sinTiltY = sinf(tiltY);
@@ -2032,15 +2702,50 @@
             {GUN_SCREEN_X, GUN_SCREEN_Y, GUN_SCREEN_Z, 1}
         }};
 
+        // Select the correct weapon buffer based on current weapon
+        WeaponSystem *ws = [WeaponSystem shared];
+        WeaponType currentWeapon = [ws getCurrentWeapon];
+        id<MTLBuffer> weaponBuffer;
+        NSUInteger weaponVertexCount;
+        float muzzleZ = 0.25f;  // Default muzzle position
+
+        switch (currentWeapon) {
+            case WeaponTypePistol:
+                weaponBuffer = _pistolBuffer;
+                weaponVertexCount = _pistolVertexCount;
+                muzzleZ = 0.25f;
+                break;
+            case WeaponTypeShotgun:
+                weaponBuffer = _shotgunBuffer;
+                weaponVertexCount = _shotgunVertexCount;
+                muzzleZ = 0.32f;  // Longer barrel
+                break;
+            case WeaponTypeAssaultRifle:
+                weaponBuffer = _rifleBuffer;
+                weaponVertexCount = _rifleVertexCount;
+                muzzleZ = 0.38f;  // Longer barrel
+                break;
+            case WeaponTypeRocketLauncher:
+                weaponBuffer = _rocketLauncherBuffer;
+                weaponVertexCount = _rocketLauncherVertexCount;
+                muzzleZ = 0.42f;  // Longest barrel
+                break;
+            default:
+                weaponBuffer = _pistolBuffer;
+                weaponVertexCount = _pistolVertexCount;
+                muzzleZ = 0.25f;
+                break;
+        }
+
         [encoder setRenderPipelineState:_pipelineState];
         [encoder setDepthStencilState:_bgDepthState];
-        [encoder setVertexBuffer:_gunVertexBuffer offset:0 atIndex:0];
+        [encoder setVertexBuffer:weaponBuffer offset:0 atIndex:0];
         [encoder setVertexBytes:&gunMvp length:sizeof(gunMvp) atIndex:1];
-        [encoder drawPrimitives:MTLPrimitiveTypeTriangle vertexStart:0 vertexCount:_gunVertexCount];
+        [encoder drawPrimitives:MTLPrimitiveTypeTriangle vertexStart:0 vertexCount:weaponVertexCount];
 
         // Player muzzle flash
         if (state.muzzleFlashTimer > 0) {
-            float bx = 0.0f, by = 0.02f, bz = 0.25f;
+            float bx = 0.0f, by = 0.02f, bz = muzzleZ;
             float tx = GUN_SCALE * (cosTiltY * bx + sinTiltY * bz);
             float ty = GUN_SCALE * (sinTiltX * sinTiltY * bx + cosTiltX * by - sinTiltX * cosTiltY * bz);
             float flashX = GUN_SCREEN_X + tx;
@@ -2062,7 +2767,7 @@
             [encoder setVertexBytes:&IDENTITY_MATRIX length:sizeof(IDENTITY_MATRIX) atIndex:1];
             [encoder drawPrimitives:MTLPrimitiveTypeTriangle vertexStart:0 vertexCount:12];
         }
-    }
+    } // end if (!state.showPauseMenu)
 
     // Draw spawn protection shield effect (pulsing blue tint on screen edges)
     if (state.spawnProtectionTimer > 0) {
@@ -2108,31 +2813,7 @@
         [encoder drawPrimitives:MTLPrimitiveTypeTriangle vertexStart:0 vertexCount:36];
     }
 
-    // Draw blood splatter
-    if (state.bloodLevel > 0.0f) {
-        float flash = state.bloodFlashTimer > 0 ? 0.3f : 0.0f;
-        float b = state.bloodLevel;
-        simd_float3 bloodDark = {0.35f + flash, 0.0f, 0.0f};
-        simd_float3 bloodMid = {0.5f + flash, 0.02f, 0.02f};
-        simd_float3 bloodLight = {0.65f + flash, 0.05f, 0.05f};
-        float s = 0.15f + b * 0.45f;
-
-        Vertex bloodVerts[] = {
-            {{-1.0f, 1.0f, 0}, bloodDark}, {{-1.0f + s, 1.0f, 0}, bloodLight}, {{-1.0f, 1.0f - s, 0}, bloodLight},
-            {{-1.0f, 1.0f - s*0.7f, 0}, bloodMid}, {{-1.0f + s*0.6f, 1.0f - s*0.3f, 0}, bloodLight}, {{-1.0f + s*0.3f, 1.0f - s*0.8f, 0}, bloodDark},
-            {{1.0f, 1.0f, 0}, bloodDark}, {{1.0f - s, 1.0f, 0}, bloodLight}, {{1.0f, 1.0f - s, 0}, bloodLight},
-            {{1.0f, 1.0f - s*0.7f, 0}, bloodMid}, {{1.0f - s*0.6f, 1.0f - s*0.3f, 0}, bloodLight}, {{1.0f - s*0.3f, 1.0f - s*0.8f, 0}, bloodDark},
-            {{-1.0f, -1.0f, 0}, bloodDark}, {{-1.0f + s, -1.0f, 0}, bloodLight}, {{-1.0f, -1.0f + s, 0}, bloodLight},
-            {{-1.0f, -1.0f + s*0.7f, 0}, bloodMid}, {{-1.0f + s*0.6f, -1.0f + s*0.3f, 0}, bloodLight}, {{-1.0f + s*0.3f, -1.0f + s*0.8f, 0}, bloodDark},
-            {{1.0f, -1.0f, 0}, bloodDark}, {{1.0f - s, -1.0f, 0}, bloodLight}, {{1.0f, -1.0f + s, 0}, bloodLight},
-            {{1.0f, -1.0f + s*0.7f, 0}, bloodMid}, {{1.0f - s*0.6f, -1.0f + s*0.3f, 0}, bloodLight}, {{1.0f - s*0.3f, -1.0f + s*0.8f, 0}, bloodDark},
-        };
-
-        id<MTLBuffer> bloodBuf = [_device newBufferWithBytes:bloodVerts length:sizeof(bloodVerts) options:MTLResourceStorageModeShared];
-        [encoder setVertexBuffer:bloodBuf offset:0 atIndex:0];
-        [encoder setVertexBytes:&IDENTITY_MATRIX length:sizeof(IDENTITY_MATRIX) atIndex:1];
-        [encoder drawPrimitives:MTLPrimitiveTypeTriangle vertexStart:0 vertexCount:24];
-    }
+    // Blood effect removed
 
     // Draw leaderboard when Tab is held
     if (_metalView.keyTab) {

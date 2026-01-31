@@ -523,10 +523,15 @@ static void applyBotPhysics(int e) {
     botAI[e].velocityX *= BOT_FRICTION;
     botAI[e].velocityZ *= BOT_FRICTION;
 
-    // Apply gravity
-    if (!botAI[e].onGround) {
-        botAI[e].velocityY -= GRAVITY;
-    }
+    // Assume not on ground until collision detected
+    BOOL wasOnGround = botAI[e].onGround;
+    botAI[e].onGround = NO;
+
+    // Apply gravity (always apply, ground collision will stop it)
+    botAI[e].velocityY -= GRAVITY;
+
+    // Clamp terminal velocity
+    if (botAI[e].velocityY < -0.5f) botAI[e].velocityY = -0.5f;
 
     // Update position
     float newX = enemyX[e] + botAI[e].velocityX;
@@ -535,7 +540,7 @@ static void applyBotPhysics(int e) {
 
     // Ground collision
     float groundY = FLOOR_Y + 0.6f;  // Enemy center height
-    if (newY < groundY) {
+    if (newY <= groundY) {
         newY = groundY;
         botAI[e].velocityY = 0;
         botAI[e].onGround = YES;
